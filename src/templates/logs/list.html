@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Логи действий пользователей{% endblock %}
+
+{% block content %}
+<h2 class="text-xl font-semibold mb-4">📜 Журнал действий пользователей</h2>
+
+<table class="w-full text-sm border">
+  <thead class="bg-gray-100">
+    <tr>
+      <th class="p-2 border">Дата и время</th>
+      <th class="p-2 border">Пользователь</th>
+      <th class="p-2 border">Действие</th>
+      <th class="p-2 border">IP</th>
+      <th class="p-2 border">Код</th>
+      <th class="p-2 border">User-Agent</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in logs %}
+    <tr>
+      <td class="p-2 border">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') | e }}</td>
+      <td class="p-2 border">{{ log.user.name if log.user else "-" | e}}</td>
+      <td class="p-2 border">{{ log.action | e}}</td>
+      <td class="p-2 border text-xs">{{ log.ip_address or "-" | e}}</td>
+      <td class="p-2 border text-center">{{ log.status_code or "-" | e}}</td>
+      <td class="p-2 border text-xs text-gray-600">{{ log.user_agent or "-" | e}}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <div class="mt-4 flex justify-center gap-2">
+  {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&limit={{ limit }}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">« Назад</a>
+  {% endif %}
+  <span class="px-3 py-1 bg-gray-100 rounded">Страница {{ page | e }} из {{ total_pages | e }}</span>
+  {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}&limit={{ limit }}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Вперёд »</a>
+  {% endif %}
+</div>
+</table>
+{% endblock %}

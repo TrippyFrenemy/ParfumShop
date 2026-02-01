@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Мой аккаунт{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+
+  <div class="bg-white p-6 rounded shadow">
+    <h2 class="text-2xl font-semibold mb-4">Мой аккаунт</h2>
+    <p><strong>Имя:</strong> {{ user.name | e }}</p>
+    <p><strong>Email:</strong> {{ user.email | e }}</p>
+    <p><strong>Роль:</strong> {{ user.role | e }}</p>
+    <p><strong>Ставка по умолчанию:</strong> {{ user.default_rate | e }} грн</p>
+    <p><strong>Процент от кассы:</strong> {{ user.default_percent or "0.0" | e }}%</p>
+
+    {% if user.role == 'admin' %}
+    <div class="mt-6">
+      <a href="/users/{{ user.id }}/edit" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
+        ✏️ Изменить мои данные
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if user.role == 'admin' %}
+  <!-- 👥 Пользователи -->
+  <div class="bg-white p-6 rounded shadow">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-semibold">Все пользователи</h3>
+      <a href="/users/create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        ➕ Добавить
+      </a>
+    </div>
+    <div class="overflow-auto">
+      <table class="w-full border text-sm">
+        <thead class="bg-gray-200">
+          <tr>
+            <th class="p-2 border">Имя</th>
+            <th class="p-2 border">Email</th>
+            <th class="p-2 border">Роль</th>
+            <th class="p-2 border">Ставка</th>
+            <th class="p-2 border">%</th>
+            <th class="p-2 border">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          {% if u.is_active %}
+            <tr>
+              <td class="p-2 border">{{ u.name | e }}</td>
+              <td class="p-2 border">{{ u.email | e }}</td>
+              <td class="p-2 border">{{ u.role | e }}</td>
+              <td class="p-2 border">{{ u.default_rate | e }}</td>
+              <td class="p-2 border">{{ u.default_percent | e }}</td>
+              <td class="p-2 border">
+                <a href="/users/{{ u.id }}/edit" class="text-blue-600 hover:underline">Изменить</a>
+                <form method="post" action="/users/{{ u.id }}/delete" onsubmit="return confirm('Удалить пользователя {{ u.name }}?');" style="display:inline;">
+                  <button type="submit" class="text-red-600 hover:underline ml-2">Удалить</button>
+                </form>
+              </td>
+            </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Регистрация{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-xl font-semibold mb-4">Создать аккаунт</h2>
+
+    <a href="/auth/google/start"
+       class="w-full inline-flex justify-center items-center border border-gray-300 py-2 rounded hover:bg-gray-50 mb-4">
+        Зарегистрироваться через Google
+    </a>
+
+    <div class="text-center text-gray-400 mb-4">или</div>
+
+    <form method="post" action="/auth/register" class="flex flex-col gap-4">
+        <input type="text" name="name" placeholder="Имя" required class="border p-2 rounded" />
+        <input type="email" name="email" placeholder="Email" required class="border p-2 rounded" />
+        <input type="password" name="password" placeholder="Пароль" required class="border p-2 rounded" />
+        <button type="submit" class="bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Создать аккаунт</button>
+    </form>
+
+    <div class="mt-4 text-sm">
+        Уже есть аккаунт? <a class="text-blue-600 hover:underline" href="/auth/login">Войти</a>
+    </div>
+</div>
+{% endblock %}

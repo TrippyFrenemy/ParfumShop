@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-xl font-semibold mb-4">Войти в систему</h2>
+
+    <a href="/auth/google/start"
+       class="w-full inline-flex justify-center items-center border border-gray-300 py-2 rounded hover:bg-gray-50 mb-4">
+        Войти через Google
+    </a>
+
+    <div class="text-center text-gray-400 mb-4">или</div>
+
+    <form method="post" action="/auth/login" class="flex flex-col gap-4">
+        <input type="text" name="username" placeholder="Email" required class="border p-2 rounded" />
+        <input type="password" name="password" placeholder="Пароль" required class="border p-2 rounded" />
+        <button type="submit" class="bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Войти</button>
+    </form>
+
+    <div class="mt-4 text-sm">
+        Нет аккаунта? <a class="text-blue-600 hover:underline" href="/auth/register">Регистрация</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dobrotno App{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- Навигация -->
+    <nav class="bg-white shadow py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center">
+        <a href="/dashboard" class="text-xl font-bold text-gray-700 hover:underline">Dobrotno App</a>
+        <div class="mt-2 sm:mt-0 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            {% if user is defined and user %}
+                <span class="text-gray-600">{{ user.name | e }}</span>
+                {% if user.role == 'admin' and user.email == 'trippy' %}
+                    <a href="/cafe" class="text-gray-600">Кафе</a>
+                    <a href="/logs" class="bg-gray-800 text-white px-3 py-1 rounded hover:bg-gray-700 text-sm">Логи</a>
+                {% endif %}
+                <a href="/notifications" class="relative text-gray-600 hover:text-blue-600" title="Уведомления">
+                    <span class="text-xl">🔔</span>
+                    <span id="notification-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center"></span>
+                </a>
+                <a href="/users/me" class="text-blue-600 hover:underline">Мой аккаунт</a>
+                <a href="/auth/logout" class="text-red-500 hover:underline">Выход</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Контент -->
+    <main class="p-4 sm:p-6 lg:p-8 max-w-full overflow-x-auto">
+        {% block content %}{% endblock %}
+        {% if request.query_params.get('success') == '1' %}
+        <div id="success-toast" class="fixed top-6 right-6 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded shadow-lg z-50 transition-opacity duration-500">
+            ✅ Заказ успешно создан
+            {% if request.cookies.get('last_order_info') %}
+            <div class="text-sm mt-1 text-gray-700">
+                Заказ: {{ request.cookies.get('last_order_info').split(',')[0] | e }} –
+                {{ request.cookies.get('last_order_info').split(',')[1] | e }} на 
+                {{ request.cookies.get('last_order_info').split(',')[2] | e }} грн
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
+    
+
+</body>
+</html>
+
+<script>
+    async function refreshTokenIfNeeded() {
+        const exp = localStorage.getItem('access_exp');
+        if (exp && Date.now() > parseInt(exp)) {
+            try {
+                const res = await fetch("/auth/refresh", { method: "POST", credentials: "include" });
+                if (res.ok) {
+                    const now = Date.now();
+                    localStorage.setItem('access_exp', now + 30 * 60 * 1000); // +30 минут
+                } else {
+                    window.location.href = "/auth/login";
+                }
+            } catch {
+                window.location.href = "/auth/login";
+            }
+        }
+    }
+
+    setInterval(refreshTokenIfNeeded, 60_000);
+
+    const toast = document.getElementById("success-toast");
+    if (toast) {
+        setTimeout(() => {
+        toast.classList.add("opacity-0");
+        }, 4000);
+        setTimeout(() => {
+        toast.remove();
+        }, 2500);
+        // Очистить куку после отображения
+        document.cookie = "last_order_info=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
+
+    // Обновление счетчика уведомлений
+    async function updateNotificationBadge() {
+        try {
+            const res = await fetch("/notifications/api/unread-count", { credentials: "include" });
+            if (res.ok) {
+                const data = await res.json();
+                const badge = document.getElementById("notification-badge");
+                if (badge && data.unread_count > 0) {
+                    badge.textContent = data.unread_count > 99 ? "99+" : data.unread_count;
+                    badge.classList.remove("hidden");
+                } else if (badge) {
+                    badge.classList.add("hidden");
+                }
+            }
+        } catch (error) {
+            // Игнорируем ошибки для не залогиненных пользователей
+        }
+    }
+
+    // Обновляем счетчик при загрузке страницы и каждую минуту
+    if (document.getElementById("notification-badge")) {
+        updateNotificationBadge();
+        setInterval(updateNotificationBadge, 60_000);
+    }
+</script>
