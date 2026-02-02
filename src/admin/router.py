@@ -8,7 +8,7 @@ from slugify import slugify
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.dependencies import get_manager_or_admin
+from src.auth.dependencies import get_manager_or_admin, get_admin_user, get_warehouse_or_manager_or_admin
 from src.database import get_async_session
 from src.orders.models import Order, OrderStatus
 from src.orders.service import (
@@ -38,11 +38,12 @@ from src.products.service import (
     update_product,
 )
 from src.coupons.models import Coupon, DiscountType
-from src.coupons.schemas import CouponCreate
+from src.coupons.schemas import CouponCreate, CouponUpdate
 from src.coupons.service import (
     create_coupon,
     delete_coupon,
     get_all_coupons,
+    update_coupon,
 )
 from src.settings.models import ShopSettings
 from src.users.models import User
@@ -60,7 +61,7 @@ router = APIRouter()
 async def admin_dashboard(
     request: Request,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_manager_or_admin),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     stats = await get_order_stats(session)
 
@@ -164,6 +165,8 @@ async def admin_product_create(
     volume_ml: Optional[str] = Form(None),
     retail_price: str = Form(...),
     discount_price: Optional[str] = Form(None),
+    discount_start: Optional[str] = Form(None),
+    discount_end: Optional[str] = Form(None),
     stock_quantity: str = Form("0"),
     image_files: list[UploadFile] = File(default=[]),
     tier_quantities: Optional[str] = Form(None),
@@ -172,6 +175,8 @@ async def admin_product_create(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
+    from datetime import datetime
+
     tiers = []
     if tier_quantities and tier_prices:
         qtys = [q.strip() for q in tier_quantities.split(",") if q.strip()]
@@ -189,7 +194,9 @@ async def admin_product_create(
         brand=brand or None,
         volume_ml=int(volume_ml) if volume_ml else None,
         retail_price=Decimal(retail_price),
-        discount_price=Decimal(discount_price) if discount_price else None,
+        discount_price=Decimal(discount_price) if discount_price and Decimal(discount_price) > 0 else None,
+        discount_start=datetime.fromisoformat(discount_start) if discount_start else None,
+        discount_end=datetime.fromisoformat(discount_end) if discount_end else None,
         stock_quantity=int(stock_quantity),
         is_active=is_active == "1",
         images=[],
@@ -255,6 +262,8 @@ async def admin_product_edit(
     volume_ml: Optional[str] = Form(None),
     retail_price: str = Form(...),
     discount_price: Optional[str] = Form(None),
+    discount_start: Optional[str] = Form(None),
+    discount_end: Optional[str] = Form(None),
     stock_quantity: str = Form("0"),
     existing_image_urls: Optional[list[str]] = Form(None),
     image_files: list[UploadFile] = File(default=[]),
@@ -309,6 +318,8 @@ async def admin_product_edit(
             except (ValueError, TypeError):
                 pass
 
+    from datetime import datetime as dt
+
     data = ProductUpdate(
         name=name,
         description=description or None,
@@ -316,7 +327,9 @@ async def admin_product_edit(
         brand=brand or None,
         volume_ml=int(volume_ml) if volume_ml else None,
         retail_price=Decimal(retail_price),
-        discount_price=Decimal(discount_price) if discount_price else None,
+        discount_price=Decimal(discount_price) if discount_price and Decimal(discount_price) > 0 else None,
+        discount_start=dt.fromisoformat(discount_start) if discount_start else None,
+        discount_end=dt.fromisoformat(discount_end) if discount_end else None,
         stock_quantity=int(stock_quantity),
         is_active=is_active == "1",
         images=images if images else None,
@@ -340,6 +353,59 @@ async def admin_product_delete(
     return RedirectResponse("/admin/products?success=Товар+видалено", status_code=302)
 
 
+@router.post("/products/bulk-action")
+async def admin_products_bulk_action(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """Handle bulk actions on selected products."""
+    from sqlalchemy.orm import selectinload
+    from src.utils.s3 import get_s3_client
+
+    form = await request.form()
+    action = form.get("bulk_action", "")
+    product_ids_raw = form.getlist("product_ids")
+    product_ids = [int(pid) for pid in product_ids_raw if pid.strip().isdigit()]
+
+    if not product_ids or not action:
+        return RedirectResponse("/admin/products?error=Оберiть+товари+та+дiю", status_code=302)
+
+    if action == "activate":
+        stmt = select(Product).where(Product.id.in_(product_ids))
+        result = await session.execute(stmt)
+        for product in result.scalars().all():
+            product.is_active = True
+        await session.commit()
+        return RedirectResponse(f"/admin/products?success=Активовано+{len(product_ids)}+товарiв", status_code=302)
+
+    elif action == "deactivate":
+        stmt = select(Product).where(Product.id.in_(product_ids))
+        result = await session.execute(stmt)
+        for product in result.scalars().all():
+            product.is_active = False
+        await session.commit()
+        return RedirectResponse(f"/admin/products?success=Деактивовано+{len(product_ids)}+товарiв", status_code=302)
+
+    elif action == "delete":
+        s3 = get_s3_client()
+        for pid in product_ids:
+            await delete_product(session, pid, s3_client=s3)
+        return RedirectResponse(f"/admin/products?success=Видалено+{len(product_ids)}+товарiв", status_code=302)
+
+    elif action == "change_category":
+        new_category_id = form.get("bulk_category_id", "")
+        cat_id = int(new_category_id) if new_category_id else None
+        stmt = select(Product).where(Product.id.in_(product_ids))
+        result = await session.execute(stmt)
+        for product in result.scalars().all():
+            product.category_id = cat_id
+        await session.commit()
+        return RedirectResponse(f"/admin/products?success=Категорiю+змiнено+для+{len(product_ids)}+товарiв", status_code=302)
+
+    return RedirectResponse("/admin/products?error=Невiдома+дiя", status_code=302)
+
+
 # =========================================================================
 # Categories
 # =========================================================================
@@ -351,8 +417,11 @@ async def admin_categories_list(
     user: User = Depends(get_manager_or_admin),
 ):
     # Get all categories (including non-root) for admin
+    from sqlalchemy.orm import selectinload
+
     stmt = (
         select(Category)
+        .options(selectinload(Category.parent))
         .order_by(Category.sort_order, Category.name)
     )
     result = await session.execute(stmt)
@@ -505,6 +574,17 @@ async def admin_category_delete(
 # Orders
 # =========================================================================
 
+DAYS_UA = {
+    0: "Понеділок", 1: "Вівторок", 2: "Середа", 3: "Четвер",
+    4: "П'ятниця", 5: "Субота", 6: "Неділя",
+}
+MONTHS_UA = {
+    1: "січня", 2: "лютого", 3: "березня", 4: "квітня",
+    5: "травня", 6: "червня", 7: "липня", 8: "серпня",
+    9: "вересня", 10: "жовтня", 11: "листопада", 12: "грудня",
+}
+
+
 @router.get("/orders", response_class=HTMLResponse)
 async def admin_orders_list(
     request: Request,
@@ -513,8 +593,10 @@ async def admin_orders_list(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_manager_or_admin),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
+    from itertools import groupby
+
     orders, total = await get_all_orders(
         session,
         status=status,
@@ -524,12 +606,30 @@ async def admin_orders_list(
     )
     total_pages = math.ceil(total / per_page) if total else 1
 
+    # Group orders by calendar day
+    grouped_orders = []
+    for day_date, day_orders in groupby(
+        orders, key=lambda o: o.created_at.date() if o.created_at else None
+    ):
+        if day_date:
+            day_name = DAYS_UA.get(day_date.weekday(), "")
+            month_name = MONTHS_UA.get(day_date.month, "")
+            header = f"{day_name}, {day_date.day} {month_name} {day_date.year}"
+        else:
+            header = "Без дати"
+        grouped_orders.append({
+            "header": header,
+            "date": day_date,
+            "orders": list(day_orders),
+        })
+
     return templates.TemplateResponse(
         "admin/orders/list.html",
         {
             "request": request,
             "user": user,
             "orders": orders,
+            "grouped_orders": grouped_orders,
             "search": search or "",
             "status": status or "",
             "page": page,
@@ -546,7 +646,7 @@ async def admin_order_update_status(
     order_id: int,
     status: str = Form(...),
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_manager_or_admin),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     await update_order_status(session, order_id, OrderStatus(status))
     return RedirectResponse(f"/admin/orders?success=Статус+оновлено", status_code=302)
@@ -557,7 +657,7 @@ async def admin_order_set_ttn(
     order_id: int,
     ttn: str = Form(...),
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_manager_or_admin),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     await update_order_ttn(session, order_id, ttn)
     return RedirectResponse(f"/admin/orders?success=ТТН+встановлено", status_code=302)
@@ -568,7 +668,7 @@ async def admin_order_detail(
     request: Request,
     order_id: int,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_manager_or_admin),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     from sqlalchemy.orm import selectinload
 
@@ -592,6 +692,189 @@ async def admin_order_detail(
             "active_page": "orders",
         },
     )
+
+
+async def _recalculate_order_totals(session: AsyncSession, order_id: int):
+    """Recalculate order subtotal and total after item changes."""
+    from sqlalchemy.orm import selectinload
+
+    stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+    order = (await session.execute(stmt)).scalar_one_or_none()
+    if not order:
+        return
+
+    subtotal = sum(item.total for item in order.items)
+    order.subtotal = subtotal
+
+    if order.coupon_id:
+        coupon = await session.get(Coupon, order.coupon_id)
+        if coupon:
+            order.discount_amount = Decimal(str(coupon.calculate_discount(float(subtotal))))
+
+    order.total = order.subtotal - (order.discount_amount or Decimal("0"))
+    if order.total < 0:
+        order.total = Decimal("0")
+
+    await session.commit()
+
+
+@router.post("/orders/{order_id}/items/{item_id}/update")
+async def admin_order_update_item(
+    order_id: int,
+    item_id: int,
+    quantity: int = Form(...),
+    price_per_unit: Optional[str] = Form(None),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """Update quantity and/or price of an order item and recalculate totals."""
+    from src.orders.models import OrderItem
+
+    item = await session.get(OrderItem, item_id)
+    if not item or item.order_id != order_id:
+        return RedirectResponse(f"/admin/orders/{order_id}?error=Товар+не+знайдено", status_code=302)
+
+    if quantity <= 0:
+        await session.delete(item)
+    else:
+        item.quantity = quantity
+        if price_per_unit:
+            item.price_per_unit = Decimal(price_per_unit)
+        item.total = item.price_per_unit * quantity
+
+    await session.commit()
+    await _recalculate_order_totals(session, order_id)
+    return RedirectResponse(f"/admin/orders/{order_id}?success=Товар+оновлено", status_code=302)
+
+
+@router.post("/orders/{order_id}/items/{item_id}/remove")
+async def admin_order_remove_item(
+    order_id: int,
+    item_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    from src.orders.models import OrderItem
+
+    item = await session.get(OrderItem, item_id)
+    if item and item.order_id == order_id:
+        await session.delete(item)
+        await session.commit()
+        await _recalculate_order_totals(session, order_id)
+    return RedirectResponse(f"/admin/orders/{order_id}?success=Товар+видалено", status_code=302)
+
+
+@router.get("/api/products/search")
+async def admin_product_search_api(
+    q: str = Query(..., min_length=1),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """Search products by name for adding to orders."""
+    from fastapi.responses import JSONResponse
+
+    products, _ = await get_products(session, search=q, page=1, per_page=10)
+    return JSONResponse(content=[
+        {
+            "id": p.id,
+            "name": p.name,
+            "price": str(p.effective_price),
+            "image": p.main_image if hasattr(p, 'main_image') else None,
+        }
+        for p in products
+    ])
+
+
+@router.post("/orders/{order_id}/items/add")
+async def admin_order_add_item(
+    order_id: int,
+    product_id: int = Form(...),
+    quantity: int = Form(1),
+    price_per_unit: Optional[str] = Form(None),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    from src.orders.models import OrderItem
+    from sqlalchemy.orm import selectinload
+
+    product_stmt = select(Product).options(selectinload(Product.images)).where(Product.id == product_id)
+    product = (await session.execute(product_stmt)).scalar_one_or_none()
+    if not product:
+        return RedirectResponse(f"/admin/orders/{order_id}?error=Товар+не+знайдено", status_code=302)
+
+    price = Decimal(price_per_unit) if price_per_unit else product.effective_price
+
+    # Check if this product already exists in the order — increment quantity
+    existing_stmt = select(OrderItem).where(
+        OrderItem.order_id == order_id,
+        OrderItem.product_id == product_id,
+    )
+    existing_item = (await session.execute(existing_stmt)).scalar_one_or_none()
+
+    if existing_item:
+        existing_item.quantity += quantity
+        if price_per_unit:
+            existing_item.price_per_unit = price
+        existing_item.total = existing_item.price_per_unit * existing_item.quantity
+    else:
+        item = OrderItem(
+            order_id=order_id,
+            product_id=product.id,
+            product_name=product.name,
+            product_image_url=product.main_image if hasattr(product, 'main_image') else None,
+            price_per_unit=price,
+            quantity=quantity,
+            total=price * quantity,
+        )
+        session.add(item)
+
+    await session.commit()
+    await _recalculate_order_totals(session, order_id)
+    return RedirectResponse(f"/admin/orders/{order_id}?success=Товар+додано", status_code=302)
+
+
+@router.post("/orders/{order_id}/coupon")
+async def admin_order_apply_coupon(
+    order_id: int,
+    coupon_code: str = Form(...),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_admin_user),
+):
+    """Apply coupon to order (ADMIN only)."""
+    order = await session.get(Order, order_id)
+    if not order:
+        return RedirectResponse(f"/admin/orders/{order_id}?error=Замовлення+не+знайдено", status_code=302)
+
+    from src.coupons.service import get_coupon_by_code
+    coupon = await get_coupon_by_code(session, coupon_code)
+    if not coupon:
+        return RedirectResponse(f"/admin/orders/{order_id}?error=Купон+не+знайдено", status_code=302)
+
+    discount = Decimal(str(coupon.calculate_discount(float(order.subtotal))))
+    order.coupon_id = coupon.id
+    order.discount_amount = discount
+    order.total = order.subtotal - discount
+    if order.total < 0:
+        order.total = Decimal("0")
+    await session.commit()
+    return RedirectResponse(f"/admin/orders/{order_id}?success=Купон+застосовано", status_code=302)
+
+
+@router.post("/orders/{order_id}/custom-total")
+async def admin_order_custom_total(
+    order_id: int,
+    custom_total: str = Form(...),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_admin_user),
+):
+    """Set custom order total (ADMIN only)."""
+    order = await session.get(Order, order_id)
+    if not order:
+        return RedirectResponse(f"/admin/orders/{order_id}?error=Замовлення+не+знайдено", status_code=302)
+
+    order.total = Decimal(custom_total)
+    await session.commit()
+    return RedirectResponse(f"/admin/orders/{order_id}?success=Суму+оновлено", status_code=302)
 
 
 # =========================================================================
@@ -666,6 +949,62 @@ async def admin_coupon_create(
     return RedirectResponse("/admin/coupons?success=Купон+створено", status_code=302)
 
 
+@router.get("/coupons/{coupon_id}/edit", response_class=HTMLResponse)
+async def admin_coupon_edit_form(
+    request: Request,
+    coupon_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    stmt = select(Coupon).where(Coupon.id == coupon_id)
+    result = await session.execute(stmt)
+    coupon = result.scalar_one_or_none()
+    if not coupon:
+        return RedirectResponse("/admin/coupons?error=Купон+не+знайдено", status_code=302)
+
+    return templates.TemplateResponse(
+        "admin/coupons/form.html",
+        {
+            "request": request,
+            "user": user,
+            "coupon": coupon,
+            "active_page": "coupons",
+        },
+    )
+
+
+@router.post("/coupons/{coupon_id}/edit")
+async def admin_coupon_edit(
+    coupon_id: int,
+    code: str = Form(...),
+    discount_type: str = Form(...),
+    discount_value: str = Form(...),
+    min_order_amount: str = Form("0"),
+    max_uses: Optional[str] = Form(None),
+    is_active: Optional[str] = Form(None),
+    valid_from: Optional[str] = Form(None),
+    valid_until: Optional[str] = Form(None),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    from datetime import datetime
+
+    data = CouponUpdate(
+        code=code,
+        discount_type=discount_type,
+        discount_value=Decimal(discount_value),
+        min_order_amount=Decimal(min_order_amount) if min_order_amount else Decimal("0"),
+        max_uses=int(max_uses) if max_uses else None,
+        is_active=is_active == "1",
+        valid_from=datetime.fromisoformat(valid_from) if valid_from else None,
+        valid_until=datetime.fromisoformat(valid_until) if valid_until else None,
+    )
+    updated = await update_coupon(session, coupon_id, data)
+    if not updated:
+        return RedirectResponse("/admin/coupons?error=Купон+не+знайдено", status_code=302)
+    return RedirectResponse("/admin/coupons?success=Купон+оновлено", status_code=302)
+
+
 @router.post("/coupons/{coupon_id}/delete")
 async def admin_coupon_delete(
     coupon_id: int,
@@ -687,6 +1026,11 @@ async def admin_settings_page(
     user: User = Depends(get_manager_or_admin),
 ):
     shop_settings = await session.get(ShopSettings, 1)
+    if not shop_settings:
+        shop_settings = ShopSettings(id=1)
+        session.add(shop_settings)
+        await session.commit()
+        await session.refresh(shop_settings)
     return templates.TemplateResponse(
         "admin/settings.html",
         {
@@ -707,6 +1051,7 @@ async def admin_settings_save(
     payment_info_text: Optional[str] = Form(None),
     contacts_text: Optional[str] = Form(None),
     about_text: Optional[str] = Form(None),
+    show_out_of_stock: Optional[str] = Form(None),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
@@ -722,6 +1067,7 @@ async def admin_settings_save(
     shop_settings.payment_info_text = payment_info_text or None
     shop_settings.contacts_text = contacts_text or None
     shop_settings.about_text = about_text or None
+    shop_settings.show_out_of_stock = show_out_of_stock == "1"
 
     await session.commit()
     return RedirectResponse("/admin/settings?success=Налаштування+збережено", status_code=302)

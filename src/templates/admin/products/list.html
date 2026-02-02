@@ -38,12 +38,50 @@
     </form>
 </div>
 
+<!-- Bulk actions -->
+<form id="bulk-form" method="POST" action="/admin/products/bulk-action">
+<div id="bulk-actions-bar" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 hidden">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <span class="text-sm text-gray-600">Обрано: <strong id="selected-count">0</strong></span>
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+            <select name="bulk_action" id="bulk-action-select"
+                    class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition bg-white">
+                <option value="">-- Оберiть дiю --</option>
+                <option value="activate">Активувати</option>
+                <option value="deactivate">Деактивувати</option>
+                <option value="change_category">Змiнити категорiю</option>
+                <option value="delete">Видалити</option>
+            </select>
+            <select name="bulk_category_id" id="bulk-category-select"
+                    class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition bg-white hidden">
+                <option value="">-- Без категорii --</option>
+                {% if categories is defined %}
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+                {% endif %}
+            </select>
+            <button type="submit" id="bulk-submit-btn"
+                    class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Застосувати
+            </button>
+        </div>
+        <button type="button" onclick="clearSelection()" class="text-sm text-gray-400 hover:text-gray-600 transition">
+            Скасувати
+        </button>
+    </div>
+</div>
+
 <!-- Products table -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-100">
+                    <th class="text-center px-3 py-3 w-10">
+                        <input type="checkbox" id="select-all" onchange="toggleAll(this)"
+                               class="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500">
+                    </th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600 w-16">Фото</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Назва</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Бренд</th>
@@ -59,6 +97,10 @@
                 {% if products is defined %}
                 {% for product in products %}
                 <tr class="hover:bg-gray-50 transition">
+                    <td class="text-center px-3 py-3">
+                        <input type="checkbox" name="product_ids" value="{{ product.id }}" onchange="updateSelection()"
+                               class="product-checkbox w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500">
+                    </td>
                     <td class="px-4 py-3">
                         {% if product.main_image %}
                         <img src="{{ product.main_image }}" alt="{{ product.name }}" class="w-12 h-12 rounded-lg object-cover border border-gray-100">
@@ -80,6 +122,9 @@
                     <td class="px-4 py-3 text-right hidden sm:table-cell">
                         {% if product.discount_price %}
                         <span class="text-red-600 font-medium">{{ product.discount_price }} грн</span>
+                        {% if product.discount_end %}
+                        <p class="text-xs text-gray-400">до {{ product.discount_end.strftime('%d.%m.%Y') }}</p>
+                        {% endif %}
                         {% else %}
                         <span class="text-gray-400">---</span>
                         {% endif %}
@@ -105,7 +150,7 @@
                             <a href="/admin/products/{{ product.id }}/edit" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Редагувати">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             </a>
-                            <form method="POST" action="/admin/products/{{ product.id }}/delete" onsubmit="return confirm('Видалити товар &laquo;{{ product.name }}&raquo;?')">
+                            <form method="POST" action="/admin/products/{{ product.id }}/delete" onsubmit="return confirm('Видалити товар &laquo;{{ product.name }}&raquo;?')" style="display:inline">
                                 <button type="submit" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Видалити">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 </button>
@@ -118,7 +163,7 @@
 
                 {% if not products or products | length == 0 %}
                 <tr>
-                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">
+                    <td colspan="10" class="px-4 py-12 text-center text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                         <p>Товарiв не знайдено</p>
                     </td>
@@ -128,6 +173,7 @@
         </table>
     </div>
 </div>
+</form>
 
 <!-- Pagination -->
 {% if total_pages is defined and total_pages > 1 %}
@@ -154,4 +200,83 @@
     {% endif %}
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAll(master) {
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+    updateSelection();
+}
+
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const checked = document.querySelectorAll('.product-checkbox:checked');
+    const bar = document.getElementById('bulk-actions-bar');
+    const countEl = document.getElementById('selected-count');
+    const selectAll = document.getElementById('select-all');
+
+    countEl.textContent = checked.length;
+
+    if (checked.length > 0) {
+        bar.classList.remove('hidden');
+    } else {
+        bar.classList.add('hidden');
+    }
+
+    selectAll.checked = checked.length === checkboxes.length && checkboxes.length > 0;
+    selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+
+    updateSubmitBtn();
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    document.getElementById('select-all').checked = false;
+    updateSelection();
+}
+
+function updateSubmitBtn() {
+    const action = document.getElementById('bulk-action-select').value;
+    const checked = document.querySelectorAll('.product-checkbox:checked');
+    const btn = document.getElementById('bulk-submit-btn');
+    btn.disabled = !action || checked.length === 0;
+}
+
+document.getElementById('bulk-action-select').addEventListener('change', function() {
+    const catSelect = document.getElementById('bulk-category-select');
+    if (this.value === 'change_category') {
+        catSelect.classList.remove('hidden');
+    } else {
+        catSelect.classList.add('hidden');
+    }
+    updateSubmitBtn();
+});
+
+document.getElementById('bulk-form').addEventListener('submit', function(e) {
+    const action = document.getElementById('bulk-action-select').value;
+    const checked = document.querySelectorAll('.product-checkbox:checked');
+
+    if (!action || checked.length === 0) {
+        e.preventDefault();
+        return;
+    }
+
+    if (action === 'delete') {
+        if (!confirm('Видалити ' + checked.length + ' товарiв? Цю дiю не можна скасувати.')) {
+            e.preventDefault();
+            return;
+        }
+    }
+
+    if (action === 'deactivate') {
+        if (!confirm('Деактивувати ' + checked.length + ' товарiв?')) {
+            e.preventDefault();
+            return;
+        }
+    }
+});
+</script>
 {% endblock %}

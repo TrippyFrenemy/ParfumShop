@@ -132,17 +132,23 @@ async def api_add_to_cart(
     # For guest users we need to ensure session_id is available before
     # creating the cart, so we read/generate it early.
     session_id = _ensure_session_id(request) if not user else None
+    # Save user_id before expire_all() to avoid lazy-load on expired async object
+    user_id = user.id if user else None
 
-    if user:
-        cart = await get_or_create_cart(session, user_id=user.id)
+    if user_id:
+        cart = await get_or_create_cart(session, user_id=user_id)
     else:
         cart = await get_or_create_cart(session, session_id=session_id)
 
     await add_to_cart(session, cart, body.product_id, body.quantity)
 
+    # Expire cached objects so re-fetch returns fresh data
+    # (expire_on_commit is False in the session factory)
+    session.expire_all()
+
     # Re-fetch to get fully loaded relationships
-    if user:
-        cart = await get_cart(session, user_id=user.id)
+    if user_id:
+        cart = await get_cart(session, user_id=user_id)
     else:
         cart = await get_cart(session, session_id=session_id)
 
@@ -172,9 +178,15 @@ async def api_update_cart_item(
     user: Optional[User] = Depends(get_optional_user),
 ):
     """Update the quantity of a cart item. Returns the updated cart."""
+    user_id = user.id if user else None
     await update_cart_item(session, item_id, body.quantity)
+    session.expire_all()
 
-    cart = await _resolve_cart(request, session, user, create=False)
+    if user_id:
+        cart = await get_cart(session, user_id=user_id)
+    else:
+        session_id = _get_session_id(request)
+        cart = await get_cart(session, session_id=session_id) if session_id else None
     data = cart_to_dict(cart)
     return JSONResponse(content=data)
 
@@ -187,9 +199,15 @@ async def api_remove_cart_item(
     user: Optional[User] = Depends(get_optional_user),
 ):
     """Remove an item from the cart. Returns the updated cart."""
+    user_id = user.id if user else None
     await remove_from_cart(session, item_id)
+    session.expire_all()
 
-    cart = await _resolve_cart(request, session, user, create=False)
+    if user_id:
+        cart = await get_cart(session, user_id=user_id)
+    else:
+        session_id = _get_session_id(request)
+        cart = await get_cart(session, session_id=session_id) if session_id else None
     data = cart_to_dict(cart)
     return JSONResponse(content=data)
 

@@ -17,6 +17,7 @@ from src.config import settings
 from src.utils.ratelimit import is_blocked, register_failed_attempt, delete_attempt
 from src.utils.ip import get_real_ip
 
+from src.cart.service import merge_carts
 from src.templating import templates
 
 router = APIRouter()
@@ -59,8 +60,15 @@ async def login(
     refresh_token = create_refresh_token({"sub": str(user.id)})
     await redis.set(f"refresh_token:{user.id}", refresh_token)
 
+    cart_session_id = request.cookies.get("cart_session_id")
+    if cart_session_id:
+        await merge_carts(session, guest_session_id=cart_session_id, user_id=user.id)
+
     response = RedirectResponse(url="/", status_code=302)
-    return set_auth_cookies(response, access_token, refresh_token)
+    response = set_auth_cookies(response, access_token, refresh_token)
+    if cart_session_id:
+        response.delete_cookie("cart_session_id", path="/")
+    return response
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
@@ -110,8 +118,15 @@ async def register(
     refresh_token = create_refresh_token({"sub": str(user.id)})
     await redis.set(f"refresh_token:{user.id}", refresh_token)
 
+    cart_session_id = request.cookies.get("cart_session_id")
+    if cart_session_id:
+        await merge_carts(session, guest_session_id=cart_session_id, user_id=user.id)
+
     response = RedirectResponse(url="/", status_code=302)
-    return set_auth_cookies(response, access_token, refresh_token)
+    response = set_auth_cookies(response, access_token, refresh_token)
+    if cart_session_id:
+        response.delete_cookie("cart_session_id", path="/")
+    return response
 
 @router.post("/refresh")
 async def refresh_token(request: Request):
@@ -250,9 +265,92 @@ async def google_callback(
     await redis.set(f"refresh_token:{user.id}", refresh_token)
     logger.info(f"[GOOGLE LOGIN SUCCESS] user_id={user.id} email={email}")
 
+    cart_session_id = request.cookies.get("cart_session_id")
+    if cart_session_id:
+        await merge_carts(session, guest_session_id=cart_session_id, user_id=user.id)
+
     response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("oauth_state", path="/")
-    return set_auth_cookies(response, access_token, refresh_token)
+    response = set_auth_cookies(response, access_token, refresh_token)
+    if cart_session_id:
+        response.delete_cookie("cart_session_id", path="/")
+    return response
+
+
+from pydantic import BaseModel
+
+
+class PostOrderRegisterRequest(BaseModel):
+    email: str
+    password: str
+    order_number: str
+    name: str
+    phone: str | None = None
+
+
+@router.post("/post-order-register")
+async def post_order_register(
+    request: Request,
+    body: PostOrderRegisterRequest,
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Create account after placing an order and link the order to the new user."""
+    ip = await get_real_ip(request)
+    if await is_blocked(ip):
+        raise HTTPException(status_code=429, detail="Забагато спроб. Зачекайте 10 хвилин.")
+
+    email_norm = body.email.strip().lower()
+
+    stmt = select(User).where(User.email == email_norm)
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="Користувач з таким email вже існує")
+
+    user = User(
+        email=email_norm,
+        name=body.name.strip(),
+        phone=body.phone,
+        role=UserRole.CLIENT,
+        hashed_password=pwd_context.hash(body.password),
+        is_active=True,
+    )
+    session.add(user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Користувач з таким email вже існує")
+
+    await session.refresh(user)
+
+    # Link the order to the new user
+    from src.orders.models import Order
+    order_stmt = select(Order).where(
+        Order.order_number == body.order_number,
+        Order.user_id.is_(None),
+    )
+    order_result = await session.execute(order_stmt)
+    order = order_result.scalar_one_or_none()
+    if order:
+        order.user_id = user.id
+        await session.commit()
+
+    # Merge guest cart if present
+    cart_session_id = request.cookies.get("cart_session_id")
+    if cart_session_id:
+        await merge_carts(session, guest_session_id=cart_session_id, user_id=user.id)
+
+    # Generate tokens
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+    await redis.set(f"refresh_token:{user.id}", refresh_token)
+
+    response = JSONResponse(content={"message": "Акаунт створено! Замовлення прив'язано."})
+    response = set_auth_cookies(response, access_token, refresh_token)
+    if cart_session_id:
+        response.delete_cookie("cart_session_id", path="/")
+    return response
 
 
 @router.get("/logout")

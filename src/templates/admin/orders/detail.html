@@ -5,6 +5,9 @@
 
 {% block content %}
 {% if order is defined and order %}
+{% set is_warehouse = user.role.value == 'warehouse' %}
+{% set is_admin = user.role.value == 'admin' %}
+
 <!-- Back link and header -->
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <div class="flex items-center gap-4">
@@ -80,15 +83,15 @@
             </div>
             {% endif %}
             {% if order.warehouse %}
-            <div class="flex justify-between">
-                <span class="text-gray-500">Вiддiлення:</span>
-                <span class="font-medium text-gray-900 text-right max-w-[200px]">{{ order.warehouse }}</span>
+            <div class="flex justify-between gap-2">
+                <span class="text-gray-500 shrink-0">Вiддiлення:</span>
+                <span class="font-medium text-gray-900 text-right">{{ order.warehouse }}</span>
             </div>
             {% endif %}
             {% if order.address %}
-            <div class="flex justify-between">
-                <span class="text-gray-500">Адреса:</span>
-                <span class="font-medium text-gray-900 text-right max-w-[200px]">{{ order.address }}</span>
+            <div class="flex justify-between gap-2">
+                <span class="text-gray-500 shrink-0">Адреса:</span>
+                <span class="font-medium text-gray-900 text-right">{{ order.address }}</span>
             </div>
             {% endif %}
             {% if order.ttn %}
@@ -152,6 +155,9 @@
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Цiна</th>
                     <th class="text-center px-4 py-3 font-semibold text-gray-600">Кiлькiсть</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Сума</th>
+                    {% if not is_warehouse %}
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600 w-16"></th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -172,14 +178,66 @@
                         <a href="/admin/products/{{ item.product_id }}/edit" class="text-xs text-brand-500 hover:text-brand-600 transition">Переглянути товар</a>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-right text-gray-900">{{ item.price_per_unit }} грн</td>
-                    <td class="px-4 py-3 text-center text-gray-900">{{ item.quantity }}</td>
+                    <td class="px-4 py-3 text-right text-gray-900">
+                        {% if not is_warehouse %}
+                        <form method="POST" action="/admin/orders/{{ order.id }}/items/{{ item.id }}/update" class="inline-flex items-center gap-1" id="item-form-{{ item.id }}">
+                            <input type="number" name="price_per_unit" value="{{ item.price_per_unit }}" step="0.01" min="0"
+                                   class="w-24 text-right border border-gray-200 rounded-lg py-1 text-sm focus:outline-none focus:border-brand-400">
+                        </form>
+                        {% else %}
+                        {{ item.price_per_unit }} грн
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if not is_warehouse %}
+                            <input type="number" name="quantity" value="{{ item.quantity }}" min="1"
+                                   form="item-form-{{ item.id }}"
+                                   class="w-16 text-center border border-gray-200 rounded-lg py-1 text-sm focus:outline-none focus:border-brand-400">
+                            <button type="submit" form="item-form-{{ item.id }}" class="p-1 text-brand-600 hover:text-brand-700" title="Зберегти">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                        {% else %}
+                        <span class="text-gray-900">{{ item.quantity }}</span>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3 text-right font-medium text-gray-900">{{ item.total }} грн</td>
+                    {% if not is_warehouse %}
+                    <td class="px-4 py-3 text-right">
+                        <form method="POST" action="/admin/orders/{{ order.id }}/items/{{ item.id }}/remove"
+                              onsubmit="return confirm('Видалити цей товар?')">
+                            <button type="submit" class="p-1 text-red-400 hover:text-red-600" title="Видалити">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {% if not is_warehouse %}
+    <!-- Add item section -->
+    <div class="border-t border-gray-100 px-5 py-4">
+        <h4 class="text-sm font-semibold text-gray-700 mb-3">Додати товар</h4>
+        <div class="relative mb-3">
+            <input type="text" id="product-search" placeholder="Пошук товару за назвою..."
+                   autocomplete="off"
+                   class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400">
+            <div id="product-search-dropdown" class="hidden absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
+        </div>
+        <form method="POST" action="/admin/orders/{{ order.id }}/items/add" id="add-item-form" class="hidden">
+            <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <span id="selected-product-name" class="flex-1 text-sm font-medium"></span>
+                <input type="hidden" name="product_id" id="add-product-id">
+                <input type="number" name="quantity" value="1" min="1" class="w-16 text-center border border-gray-200 rounded-lg py-1 text-sm">
+                <input type="text" name="price_per_unit" id="add-product-price" class="w-24 text-center border border-gray-200 rounded-lg py-1 text-sm" placeholder="Цiна">
+                <button type="submit" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">Додати</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
 
     <!-- Totals -->
     <div class="border-t border-gray-100 px-5 py-4">
@@ -200,6 +258,34 @@
             </div>
         </div>
     </div>
+
+    {% if is_admin %}
+    <!-- Admin-only: Coupon and custom price -->
+    <div class="border-t border-gray-100 px-5 py-4 space-y-4">
+        <form method="POST" action="/admin/orders/{{ order.id }}/coupon">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Купон</label>
+            <div class="flex gap-2">
+                <input type="text" name="coupon_code" placeholder="Код купону"
+                       class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400">
+                <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition">
+                    Застосувати
+                </button>
+            </div>
+        </form>
+
+        <form method="POST" action="/admin/orders/{{ order.id }}/custom-total">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Встановити суму вручну</label>
+            <div class="flex gap-2">
+                <input type="number" name="custom_total" step="0.01" min="0"
+                       value="{{ order.total }}"
+                       class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400">
+                <button type="submit" class="px-4 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200 transition">
+                    Зберегти
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Comment -->
@@ -229,5 +315,61 @@
     <p class="text-gray-400">Замовлення не знайдено</p>
     <a href="/admin/orders" class="text-brand-600 hover:text-brand-700 text-sm mt-2 inline-block">Повернутись до списку</a>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if order is defined and order and not (user.role.value == 'warehouse') %}
+<script>
+let searchTimeout = null;
+const productSearch = document.getElementById('product-search');
+const productDropdown = document.getElementById('product-search-dropdown');
+
+if (productSearch) {
+    productSearch.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const q = this.value.trim();
+        if (q.length < 2) { productDropdown.classList.add('hidden'); return; }
+
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch('/admin/api/products/search?q=' + encodeURIComponent(q));
+                const data = await res.json();
+                if (data.length > 0) {
+                    productDropdown.innerHTML = data.map(p =>
+                        `<div class="px-4 py-2.5 hover:bg-brand-50 cursor-pointer text-sm flex items-center gap-3 transition"
+                              onclick="selectProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}', '${p.price}')">
+                            ${p.image ? '<img src="' + p.image + '" class="w-8 h-8 rounded object-cover">' : ''}
+                            <div>
+                                <span class="font-medium">${p.name}</span>
+                                <span class="text-gray-400 ml-2">${p.price} грн</span>
+                            </div>
+                        </div>`
+                    ).join('');
+                    productDropdown.classList.remove('hidden');
+                } else {
+                    productDropdown.innerHTML = '<div class="px-4 py-3 text-sm text-gray-400">Нiчого не знайдено</div>';
+                    productDropdown.classList.remove('hidden');
+                }
+            } catch(e) {}
+        }, 300);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!productSearch.contains(e.target) && !productDropdown.contains(e.target)) {
+            productDropdown.classList.add('hidden');
+        }
+    });
+}
+
+function selectProduct(id, name, price) {
+    document.getElementById('add-product-id').value = id;
+    document.getElementById('selected-product-name').textContent = name;
+    document.getElementById('add-product-price').value = price;
+    document.getElementById('add-item-form').classList.remove('hidden');
+    document.getElementById('product-search').value = name;
+    productDropdown.classList.add('hidden');
+}
+</script>
 {% endif %}
 {% endblock %}

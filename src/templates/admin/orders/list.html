@@ -61,8 +61,16 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-                {% if orders is defined %}
-                {% for order in orders %}
+                {% if grouped_orders is defined and grouped_orders | length > 0 %}
+                {% for group in grouped_orders %}
+                <!-- Day header -->
+                <tr class="bg-gray-100">
+                    <td colspan="8" class="px-4 py-2.5">
+                        <span class="text-sm font-semibold text-gray-700">{{ group.header }}</span>
+                        <span class="text-xs text-gray-400 ml-2">({{ group.orders | length }})</span>
+                    </td>
+                </tr>
+                {% for order in group.orders %}
                 <tr class="hover:bg-gray-50 transition">
                     <td class="px-4 py-3">
                         <a href="/admin/orders/{{ order.id }}" class="font-medium text-brand-600 hover:text-brand-700 transition">
@@ -104,7 +112,7 @@
                         <span class="text-gray-400">---</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '' }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{{ order.created_at.strftime('%H:%M') if order.created_at else '' }}</td>
                     <td class="px-4 py-3 text-right">
                         <a href="/admin/orders/{{ order.id }}" class="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition inline-block" title="Переглянути">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -112,9 +120,10 @@
                     </td>
                 </tr>
                 {% endfor %}
+                {% endfor %}
                 {% endif %}
 
-                {% if not orders or orders | length == 0 %}
+                {% if not grouped_orders or grouped_orders | length == 0 %}
                 <tr>
                     <td colspan="8" class="px-4 py-12 text-center text-gray-400">
                         <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>

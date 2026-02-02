@@ -1,3 +1,36 @@
+// Toast notification helper
+function showToast(message, type = 'error') {
+    const existing = document.getElementById('validation-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'validation-toast';
+    const bgClass = type === 'error'
+        ? 'bg-red-50 border-red-200 text-red-800'
+        : 'bg-green-50 border-green-200 text-green-800';
+    toast.className = `fixed top-20 right-6 ${bgClass} px-5 py-3 rounded-xl shadow-lg z-50 max-w-sm border fade-in`;
+    toast.innerHTML = `<div class="flex items-center gap-2">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="text-sm font-medium">${message}</span>
+    </div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 4000);
+    setTimeout(() => toast.remove(), 4500);
+}
+
+// Phone input mask
+const phoneInput = document.getElementById('checkout-phone');
+if (phoneInput && typeof Inputmask !== 'undefined') {
+    Inputmask({
+        mask: '+380 99-999-99-99',
+        placeholder: '_',
+        showMaskOnHover: false,
+        showMaskOnFocus: true,
+    }).mask(phoneInput);
+}
+
 // Nova Poshta city search
 let searchTimeout = null;
 const citySearch = document.getElementById('np-city-search');
@@ -29,7 +62,6 @@ if (citySearch) {
         }, 300);
     });
 
-    // Close dropdown on outside click
     document.addEventListener('click', function (e) {
         if (!citySearch.contains(e.target) && !cityDropdown.contains(e.target)) {
             cityDropdown.classList.add('hidden');
@@ -42,37 +74,109 @@ function selectCity(ref, name) {
     document.getElementById('np-city-name').value = name;
     document.getElementById('np-city-ref').value = ref;
     document.getElementById('np-city-dropdown').classList.add('hidden');
+    // Reset warehouse selection
+    const whSearch = document.getElementById('np-warehouse-search');
+    if (whSearch) {
+        whSearch.value = '';
+        whSearch.disabled = true;
+        whSearch.placeholder = 'Завантаження...';
+    }
+    const whValue = document.getElementById('np-warehouse-value');
+    const whRef = document.getElementById('np-warehouse-ref');
+    if (whValue) whValue.value = '';
+    if (whRef) whRef.value = '';
     loadWarehouses(ref);
 }
 
-let warehouseListenerAdded = false;
+// Warehouse search (Task 2 + Task 7)
+let allWarehouses = [];
 
 async function loadWarehouses(cityRef) {
-    const sel = document.getElementById('np-warehouse-select');
-    sel.disabled = true;
-    sel.innerHTML = '<option value="">Завантаження...</option>';
+    const searchInput = document.getElementById('np-warehouse-search');
+    const dropdown = document.getElementById('np-warehouse-dropdown');
+    const valueInput = document.getElementById('np-warehouse-value');
+    const refInput = document.getElementById('np-warehouse-ref');
+
+    if (!searchInput) return;
+
+    searchInput.disabled = true;
+    searchInput.value = '';
+    searchInput.placeholder = 'Завантаження...';
+    if (valueInput) valueInput.value = '';
+    if (refInput) refInput.value = '';
+    allWarehouses = [];
 
     try {
         const res = await fetch('/delivery/np/warehouses?city_ref=' + encodeURIComponent(cityRef));
         const data = await res.json();
+        allWarehouses = data;
+
         if (data.length > 0) {
-            sel.innerHTML = '<option value="">Оберіть відділення</option>' +
-                data.map(w => `<option value="${w.description}" data-ref="${w.ref}">${w.description}</option>`).join('');
-            sel.disabled = false;
+            searchInput.disabled = false;
+            searchInput.placeholder = 'Почніть вводити номер або назву відділення...';
         } else {
-            sel.innerHTML = '<option value="">Відділень не знайдено</option>';
+            searchInput.placeholder = 'Відділень не знайдено';
         }
     } catch (e) {
-        sel.innerHTML = '<option value="">Помилка завантаження</option>';
+        searchInput.placeholder = 'Помилка завантаження';
     }
+}
 
-    if (!warehouseListenerAdded) {
-        sel.addEventListener('change', function () {
-            const opt = this.options[this.selectedIndex];
-            document.getElementById('np-warehouse-ref').value = opt.dataset.ref || '';
-        });
-        warehouseListenerAdded = true;
-    }
+// Warehouse search input handler
+const warehouseSearch = document.getElementById('np-warehouse-search');
+const warehouseDropdown = document.getElementById('np-warehouse-dropdown');
+
+if (warehouseSearch) {
+    warehouseSearch.addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        if (!allWarehouses.length) return;
+
+        const filtered = q.length === 0
+            ? allWarehouses.slice(0, 50)
+            : allWarehouses.filter(w =>
+                w.description.toLowerCase().includes(q) ||
+                w.number.toString().includes(q) ||
+                (w.short_address && w.short_address.toLowerCase().includes(q))
+            );
+
+        if (filtered.length > 0) {
+            warehouseDropdown.innerHTML = filtered.slice(0, 50).map(w => {
+                let label = w.description;
+                if (w.short_address && !label.includes(w.short_address)) {
+                    label += ' (' + w.short_address + ')';
+                }
+                const safeLabel = label.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                return `<div class="px-4 py-2.5 hover:bg-brand-50 cursor-pointer text-sm transition"
+                              onclick="selectWarehouse('${w.ref}', '${safeLabel}')">
+                            ${label}
+                        </div>`;
+            }).join('');
+            warehouseDropdown.classList.remove('hidden');
+        } else {
+            warehouseDropdown.innerHTML = '<div class="px-4 py-3 text-sm text-gray-400">Нічого не знайдено</div>';
+            warehouseDropdown.classList.remove('hidden');
+        }
+    });
+
+    warehouseSearch.addEventListener('focus', function () {
+        if (allWarehouses.length > 0 && !this.value.trim()) {
+            warehouseSearch.dispatchEvent(new Event('input'));
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!warehouseSearch.contains(e.target) && !warehouseDropdown.contains(e.target)) {
+            warehouseDropdown.classList.add('hidden');
+        }
+    });
+}
+
+function selectWarehouse(ref, label) {
+    const decoded = label.replace(/&quot;/g, '"');
+    document.getElementById('np-warehouse-search').value = decoded;
+    document.getElementById('np-warehouse-value').value = decoded;
+    document.getElementById('np-warehouse-ref').value = ref;
+    document.getElementById('np-warehouse-dropdown').classList.add('hidden');
 }
 
 // Switch delivery method (NP / UP)
@@ -123,25 +227,47 @@ async function applyCoupon() {
 const form = document.getElementById('checkout-form');
 if (form) {
     form.addEventListener('submit', function (e) {
+        // Phone validation
+        if (phoneInput && phoneInput.inputmask) {
+            const raw = phoneInput.inputmask.unmaskedvalue();
+            if (raw.length < 9) {
+                e.preventDefault();
+                showToast('Будь ласка, введіть коректний номер телефону');
+                return;
+            }
+        }
+
+        // Email validation
+        const emailInput = document.getElementById('checkout-email');
+        if (emailInput && emailInput.value.trim()) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailInput.value.trim())) {
+                e.preventDefault();
+                showToast('Будь ласка, введіть коректний email');
+                return;
+            }
+        }
+
         const method = document.querySelector('input[name="delivery_method"]:checked').value;
         if (method === 'nova_poshta') {
             if (!document.getElementById('np-city-ref').value) {
                 e.preventDefault();
-                alert('Будь ласка, оберіть місто доставки');
+                showToast('Будь ласка, оберіть місто доставки');
                 return;
             }
             const npType = document.querySelector('input[name="np_delivery_type"]:checked').value;
             if (npType === 'warehouse') {
-                if (!document.getElementById('np-warehouse-select').value) {
+                const whValue = document.getElementById('np-warehouse-value');
+                if (!whValue || !whValue.value) {
                     e.preventDefault();
-                    alert('Будь ласка, оберіть відділення');
+                    showToast('Будь ласка, оберіть відділення');
                     return;
                 }
             } else {
                 const npAddr = document.getElementById('np-address-input');
                 if (!npAddr || !npAddr.value.trim()) {
                     e.preventDefault();
-                    alert('Будь ласка, вкажіть адресу доставки');
+                    showToast('Будь ласка, вкажіть адресу доставки');
                     return;
                 }
             }
@@ -150,12 +276,12 @@ if (form) {
             const addr = document.querySelector('input[name="address"]');
             if (!city || !city.value.trim()) {
                 e.preventDefault();
-                alert('Будь ласка, вкажіть місто');
+                showToast('Будь ласка, вкажіть місто');
                 return;
             }
             if (!addr || !addr.value.trim()) {
                 e.preventDefault();
-                alert('Будь ласка, вкажіть адресу або відділення');
+                showToast('Будь ласка, вкажіть адресу або відділення');
                 return;
             }
         }

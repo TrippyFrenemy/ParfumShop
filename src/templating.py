@@ -15,6 +15,13 @@ def _template_response_with_content(name, context, **kwargs):
         return Markup(value) if value else Markup(default)
 
     context.setdefault("t", t)
+
+    # Inject shop settings so base.html header/footer always has access
+    if request:
+        shop_settings = getattr(request.state, "shop_settings", None)
+        context.setdefault("settings", shop_settings)
+        context.setdefault("shop_settings", shop_settings)
+
     return _original_template_response(name, context, **kwargs)
 
 

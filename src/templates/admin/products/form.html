@@ -30,16 +30,23 @@
 
                 <!-- Category -->
                 <div>
-                    <label for="category_id" class="block text-sm font-medium text-gray-700 mb-1.5">Категорiя</label>
-                    <select id="category_id" name="category_id"
-                            class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition bg-white">
-                        <option value="">-- Без категорii --</option>
-                        {% if categories is defined %}
-                        {% for cat in categories %}
-                        <option value="{{ cat.id }}" {% if product is defined and product and product.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
-                        {% endfor %}
-                        {% endif %}
-                    </select>
+                    <label for="category-search-input" class="block text-sm font-medium text-gray-700 mb-1.5">Категорiя</label>
+                    <div class="flex rounded-lg border border-gray-200 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition overflow-hidden">
+                        <span class="flex items-center px-3 bg-gray-50 border-r border-gray-200">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </span>
+                        <input type="text" id="category-search-input" placeholder="Пошук..."
+                               class="px-3 py-2.5 text-sm focus:outline-none w-24 min-w-0 shrink">
+                        <select id="category_id" name="category_id"
+                                class="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-white border-l border-gray-200 min-w-0">
+                            <option value="">-- Без категорii --</option>
+                            {% if categories is defined %}
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if product is defined and product and product.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                            {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Brand -->
@@ -91,6 +98,24 @@
                            value="{{ product.discount_price if product is defined and product and product.discount_price else '' }}"
                            class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition"
                            placeholder="0.00">
+                </div>
+
+                <!-- Discount start -->
+                <div>
+                    <label for="discount_start" class="block text-sm font-medium text-gray-700 mb-1.5">Початок акцiї</label>
+                    <input type="datetime-local" id="discount_start" name="discount_start"
+                           value="{{ product.discount_start.strftime('%Y-%m-%dT%H:%M') if product is defined and product and product.discount_start else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition">
+                    <p class="text-xs text-gray-400 mt-1">Залиште порожнiм для негайного початку</p>
+                </div>
+
+                <!-- Discount end -->
+                <div>
+                    <label for="discount_end" class="block text-sm font-medium text-gray-700 mb-1.5">Кiнець акцiї</label>
+                    <input type="datetime-local" id="discount_end" name="discount_end"
+                           value="{{ product.discount_end.strftime('%Y-%m-%dT%H:%M') if product is defined and product and product.discount_end else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition">
+                    <p class="text-xs text-gray-400 mt-1">Залиште порожнiм для безстрокової знижки</p>
                 </div>
             </div>
         </div>
@@ -173,6 +198,26 @@ function removeExistingImage(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
 }
+
+// Category search filter
+(function() {
+    const searchInput = document.getElementById('category-search-input');
+    const select = document.getElementById('category_id');
+    const allOptions = Array.from(select.options).map(opt => ({value: opt.value, text: opt.textContent, selected: opt.selected}));
+
+    searchInput.addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        const currentVal = select.value;
+        select.innerHTML = '';
+        allOptions.forEach(function(opt) {
+            if (!q || opt.value === '' || opt.text.toLowerCase().includes(q)) {
+                const option = new Option(opt.text, opt.value);
+                if (opt.value === currentVal) option.selected = true;
+                select.appendChild(option);
+            }
+        });
+    });
+})();
 
 document.getElementById('image_files').addEventListener('change', function(e) {
     const preview = document.getElementById('file-preview');

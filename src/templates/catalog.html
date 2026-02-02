@@ -26,15 +26,17 @@
                 <!-- Categories -->
                 <div>
                     <h4 class="text-sm font-medium text-gray-700 mb-2">{{ t('catalog.categories_label', 'Категорії') }}</h4>
-                    <ul class="space-y-1">
-                        <li>
+                    <input type="text" id="category-search" placeholder="Пошук категорії..."
+                           class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 mb-2">
+                    <ul class="space-y-1" id="category-list">
+                        <li data-cat-name="">
                             <a href="/catalog" class="block text-sm py-1 px-2 rounded {{ 'bg-brand-50 text-brand-700 font-medium' if not (current_category is defined and current_category) else 'text-gray-600 hover:bg-gray-50' }} transition">
                                 {{ t('catalog.all_products', 'Усі товари') }}
                             </a>
                         </li>
                         {% if categories is defined %}
                         {% for cat in categories %}
-                        <li>
+                        <li data-cat-name="{{ cat.name | lower }}">
                             <a href="/catalog/{{ cat.slug }}" class="block text-sm py-1 px-2 rounded {{ 'bg-brand-50 text-brand-700 font-medium' if current_category is defined and current_category and current_category.id == cat.id else 'text-gray-600 hover:bg-gray-50' }} transition">
                                 {{ cat.name }}
                             </a>
@@ -67,10 +69,12 @@
                     {% if brands is defined and brands %}
                     <div class="mb-4">
                         <h4 class="text-sm font-medium text-gray-700 mb-2">{{ t('catalog.brand_label', 'Бренд') }}</h4>
-                        <select name="brand" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400">
+                        <input type="text" id="brand-search" placeholder="Пошук бренду..."
+                               class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 mb-1.5">
+                        <select name="brand" id="brand-select" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400">
                             <option value="">{{ t('catalog.all_brands', 'Усі бренди') }}</option>
                             {% for b in brands %}
-                            <option value="{{ b }}" {{ 'selected' if selected_brand is defined and selected_brand == b }}>{{ b }}</option>
+                            <option value="{{ b }}" {{ 'selected' if filters is defined and filters and filters.brand == b }}>{{ b }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -127,4 +131,38 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('category-search').addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    document.querySelectorAll('#category-list li[data-cat-name]').forEach(function(li) {
+        const name = li.getAttribute('data-cat-name');
+        li.style.display = (!q || name === '' || name.includes(q)) ? '' : 'none';
+    });
+});
+
+// Brand search filter
+(function() {
+    var searchInput = document.getElementById('brand-search');
+    var select = document.getElementById('brand-select');
+    if (!searchInput || !select) return;
+    var allOptions = Array.from(select.options).map(function(opt) {
+        return {value: opt.value, text: opt.textContent, selected: opt.selected};
+    });
+    searchInput.addEventListener('input', function() {
+        var q = this.value.toLowerCase().trim();
+        var currentVal = select.value;
+        select.innerHTML = '';
+        allOptions.forEach(function(opt) {
+            if (!q || opt.value === '' || opt.text.toLowerCase().includes(q)) {
+                var option = new Option(opt.text, opt.value);
+                if (opt.value === currentVal) option.selected = true;
+                select.appendChild(option);
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -81,7 +81,7 @@
                 {% if shop_settings is defined and shop_settings and shop_settings.payment_info_text %}
                 <div class="text-sm text-gray-600 leading-relaxed">{{ shop_settings.payment_info_text | safe }}</div>
                 {% else %}
-                <p class="text-sm text-gray-600">{{ t('contacts.payment_default', 'Оплата при отриманні (накладений платіж) або переказ на карту.') }}</p>
+                <p class="text-sm text-gray-600">{{ t('contacts.payment_default', 'Оплата на ФОП рахунок.') }}</p>
                 {% endif %}
             </div>
 

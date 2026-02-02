@@ -17,6 +17,9 @@ function updateCartBadge(data) {
     if (count > 0) {
         badge.textContent = count > 99 ? '99+' : count;
         badge.classList.remove('hidden');
+        badge.classList.remove('cart-badge-bounce');
+        void badge.offsetWidth;
+        badge.classList.add('cart-badge-bounce');
     } else {
         badge.classList.add('hidden');
     }
@@ -110,7 +113,6 @@ async function quickAddToCart(productId, btn) {
             const data = await res.json();
             updateCartBadge(data);
             refreshCartDrawer(data);
-            openCartDrawer();
             btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Додано!';
             setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 1500);
         } else {

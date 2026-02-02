@@ -34,6 +34,8 @@ class Product(Base):
 
     retail_price = Column(Numeric(10, 2), nullable=False)
     discount_price = Column(Numeric(10, 2), nullable=True)
+    discount_start = Column(DateTime, nullable=True)
+    discount_end = Column(DateTime, nullable=True)
 
     stock_quantity = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
@@ -54,8 +56,20 @@ class Product(Base):
         return None
 
     @property
+    def is_discount_active(self):
+        """Check if discount is currently within its scheduled time window."""
+        if not self.discount_price or self.discount_price >= self.retail_price:
+            return False
+        now = datetime.now()
+        if self.discount_start and now < self.discount_start:
+            return False
+        if self.discount_end and now > self.discount_end:
+            return False
+        return True
+
+    @property
     def effective_price(self):
-        if self.discount_price and self.discount_price < self.retail_price:
+        if self.is_discount_active:
             return self.discount_price
         return self.retail_price
 

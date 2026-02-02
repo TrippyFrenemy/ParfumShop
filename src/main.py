@@ -47,6 +47,11 @@ async def lifespan(app: FastAPI):
     # await create_user(role=settings.WAREHOUSE_ROLE, email=settings.WAREHOUSE_EMAIL, name=settings.WAREHOUSE_NAME, password=settings.WAREHOUSE_PASSWORD)
     async with async_session_maker() as session:
         await seed_content(session)
+        # Ensure ShopSettings row exists so settings are always available
+        existing = await session.get(ShopSettings, 1)
+        if not existing:
+            session.add(ShopSettings(id=1))
+            await session.commit()
     yield
     # Cleanup actions can be added here if needed
 

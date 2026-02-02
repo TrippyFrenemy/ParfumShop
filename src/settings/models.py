@@ -13,3 +13,4 @@ class ShopSettings(Base):
     shop_phone = Column(String(50), nullable=True)
     shop_email = Column(String(255), nullable=True)
     about_text = Column(Text, nullable=True)
+    show_out_of_stock = Column(Boolean, default=False, server_default="0")

@@ -90,6 +90,8 @@ class ProductBase(BaseModel):
     volume_ml: Optional[int] = None
     retail_price: Decimal = Field(..., gt=0, decimal_places=2)
     discount_price: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    discount_start: Optional[datetime] = None
+    discount_end: Optional[datetime] = None
     stock_quantity: int = Field(0, ge=0)
     is_active: bool = True
 
@@ -107,6 +109,8 @@ class ProductUpdate(BaseModel):
     volume_ml: Optional[int] = None
     retail_price: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
     discount_price: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    discount_start: Optional[datetime] = None
+    discount_end: Optional[datetime] = None
     stock_quantity: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
     images: Optional[list[ProductImageCreate]] = None
@@ -126,6 +130,9 @@ class ProductOut(BaseModel):
     volume_ml: Optional[int] = None
     retail_price: Decimal
     discount_price: Optional[Decimal] = None
+    discount_start: Optional[datetime] = None
+    discount_end: Optional[datetime] = None
+    is_discount_active: bool = False
     effective_price: Decimal
     stock_quantity: int
     is_active: bool

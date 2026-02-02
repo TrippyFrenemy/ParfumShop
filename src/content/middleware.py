@@ -4,6 +4,7 @@ from starlette.requests import Request
 from src.content.cache import get_cached_content, set_cached_content
 from src.content.service import get_all_published, get_all_with_drafts
 from src.database import async_session_maker
+from src.settings.models import ShopSettings
 
 
 class ContentMiddleware(BaseHTTPMiddleware):
@@ -35,6 +36,10 @@ class ContentMiddleware(BaseHTTPMiddleware):
                 await set_cached_content(content)
             request.state.site_content = content
             request.state.is_preview = False
+
+        # Load shop settings for base template (header/footer phone, email, etc.)
+        async with async_session_maker() as session:
+            request.state.shop_settings = await session.get(ShopSettings, 1)
 
         return await call_next(request)
 

@@ -26,20 +26,5 @@ celery_app.conf.beat_schedule = {
         "task": "src.tasks.cleanup.clean_old_logs",
         "schedule": crontab(hour=0, minute=0),
     },
-    "send-first-half-report": {
-        "task": "src.tasks.reporting.send_periodic_reports_task",
-        "schedule": crontab(day_of_month="17", hour=6, minute=0),
-    },
-    "send-second-half-report": {
-        "task": "src.tasks.reporting.send_periodic_reports_task",
-        "schedule": crontab(day_of_month="3", hour=6, minute=0),
-    },
-    "send-daily-order-summary": {
-        "task": "src.tasks.notifications.send_daily_order_summary",
-        "schedule": crontab(hour=8, minute=0),  # Каждый день в 8:00
-    },
-    "send-weekly-performance-summary": {
-        "task": "src.tasks.notifications.send_weekly_performance_summary",
-        "schedule": crontab(day_of_week=1, hour=9, minute=0),  # Каждый понедельник в 9:00
-    },
+
 }

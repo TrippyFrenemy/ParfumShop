@@ -115,6 +115,7 @@ async def get_warehouses(city_ref: str) -> list[dict]:
             "ref": item.get("Ref", ""),
             "number": item.get("Number", ""),
             "description": item.get("Description", ""),
+            "short_address": item.get("ShortAddress", ""),
             "type": item.get("TypeOfWarehouse", ""),
         }
         for item in raw

@@ -239,6 +239,8 @@ async def create_product(
         volume_ml=data.volume_ml,
         retail_price=data.retail_price,
         discount_price=data.discount_price,
+        discount_start=data.discount_start,
+        discount_end=data.discount_end,
         stock_quantity=data.stock_quantity,
         is_active=data.is_active,
     )
@@ -370,11 +372,14 @@ async def get_featured_products(
     limit: int = 8,
 ) -> list[Product]:
     """
-    Return featured products: those with a discount first, then the newest.
+    Return featured products: only those with a valid discount_price < retail_price
+    and whose discount is currently active (within discount_start/discount_end window).
 
-    Products with a discount_price set are prioritised; the rest are filled
-    by the most recently created products up to *limit*.
+    If no products have a discount, returns an empty list so the section is hidden.
     """
+    from datetime import datetime
+
+    now = datetime.now()
     stmt = (
         select(Product)
         .options(
@@ -382,12 +387,15 @@ async def get_featured_products(
             selectinload(Product.wholesale_tiers),
             selectinload(Product.category),
         )
-        .where(Product.is_active.is_(True))
-        .order_by(
-            # Push products with a discount to the top
-            Product.discount_price.is_(None).asc(),
-            Product.created_at.desc(),
+        .where(
+            Product.is_active.is_(True),
+            Product.discount_price.isnot(None),
+            Product.discount_price > 0,
+            Product.discount_price < Product.retail_price,
+            or_(Product.discount_start.is_(None), Product.discount_start <= now),
+            or_(Product.discount_end.is_(None), Product.discount_end >= now),
         )
+        .order_by(Product.created_at.desc())
         .limit(limit)
     )
     result = await session.execute(stmt)

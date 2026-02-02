@@ -46,6 +46,7 @@ async def get_cart(
             .selectinload(CartItem.product)
             .selectinload(Product.wholesale_tiers),
         )
+        .execution_options(populate_existing=True)
     )
 
     if user_id is not None:

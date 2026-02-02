@@ -43,7 +43,7 @@ INITIAL_CONTENT: list[tuple[str, str, str, str, str]] = [
     ("home", "home.feature_2_title", "Швидка доставка", "Переваги 2: заголовок", "short"),
     ("home", "home.feature_2_subtitle", "Нова Пошта / Укрпошта", "Переваги 2: пiдпис", "short"),
     ("home", "home.feature_3_title", "Зручна оплата", "Переваги 3: заголовок", "short"),
-    ("home", "home.feature_3_subtitle", "На карту / при отриманнi", "Переваги 3: пiдпис", "short"),
+    ("home", "home.feature_3_subtitle", "На ФОП рахунок", "Переваги 3: пiдпис", "short"),
     ("home", "home.feature_4_title", "Оптовi цiни", "Переваги 4: заголовок", "short"),
     ("home", "home.feature_4_subtitle", "Знижки вiд 5 шт", "Переваги 4: пiдпис", "short"),
     ("home", "home.categories_heading", "Категорiї", "Секцiя: Категорiї", "short"),
@@ -68,7 +68,7 @@ INITIAL_CONTENT: list[tuple[str, str, str, str, str]] = [
     ("contacts", "contacts.ukr_name", "Укрпошта", "Доставка: Укрпошта", "short"),
     ("contacts", "contacts.ukr_text", "Доставка 3-7 робочих днiв.", "Доставка: текст УП", "text"),
     ("contacts", "contacts.payment_heading", "Оплата", "Заголовок: оплата", "short"),
-    ("contacts", "contacts.payment_default", "Оплата при отриманнi (накладений платiж) або переказ на карту.", "Оплата: текст за замовчуванням", "text"),
+    ("contacts", "contacts.payment_default", "Оплата на ФОП рахунок.", "Оплата: текст за замовчуванням", "text"),
     ("contacts", "contacts.returns_heading", "Повернення товару", "Заголовок: повернення", "short"),
     ("contacts", "contacts.returns_text", "Для повернення або обмiну товару зв'яжiться з нами за телефоном або email. Повернення можливе протягом 14 днiв з моменту отримання замовлення за умови збереження товарного вигляду та упаковки.", "Текст: повернення", "text"),
 
