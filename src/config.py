@@ -44,9 +44,18 @@ class Settings(BaseSettings):
     OAUTH_GOOGLE_CLIENT_SECRET: str
     OAUTH_GOOGLE_REDIRECT_URI: str
 
-    NOVA_POSHTA_API_KEY: str
+    NP_API_KEY: str = ""
+    TG_STAFF_CHAT_ID: str = ""
+    MIN_ORDER_AMOUNT: int = 0
 
     DEBUG: bool = False
+
+    S3_ACCESS_KEY: str = ""
+    S3_SECRET_KEY: str = ""
+    S3_ENDPOINT_URL: str = ""
+    S3_BUCKET_NAME: str = ""
+    S3_REGION: str = ""
+    S3_PUBLIC_URL: str = ""
 
 
 settings = Settings()

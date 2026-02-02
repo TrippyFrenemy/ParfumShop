@@ -1,0 +1,98 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Дашборд{% endblock %}
+{% block page_title %}Дашборд{% endblock %}
+
+{% block content %}
+<!-- Stats cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+    <!-- Orders today -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Замовлення сьогоднi</span>
+            <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            </div>
+        </div>
+        <p class="text-2xl font-bold text-gray-900">{{ stats.orders_today if stats is defined and stats else 0 }}</p>
+    </div>
+
+    <!-- Revenue today -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Виручка сьогоднi</span>
+            <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+        <p class="text-2xl font-bold text-gray-900">{{ stats.revenue_today if stats is defined and stats else 0 }} грн</p>
+    </div>
+
+    <!-- Total orders -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Всього замовлень</span>
+            <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            </div>
+        </div>
+        <p class="text-2xl font-bold text-gray-900">{{ stats.total_orders if stats is defined and stats else 0 }}</p>
+    </div>
+
+    <!-- Pending orders -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Очiкують обробки</span>
+            <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+        <p class="text-2xl font-bold text-gray-900">{{ stats.pending_orders if stats is defined and stats else 0 }}</p>
+    </div>
+</div>
+
+<!-- Secondary stats -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+    <!-- Active products -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Активнi товари</span>
+            <div class="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            </div>
+        </div>
+        <p class="text-2xl font-bold text-gray-900">{{ stats.active_products_count if stats is defined and stats else 0 }}</p>
+    </div>
+
+    <!-- Low stock -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Мало на складi</span>
+            <div class="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            </div>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 {% if stats is defined and stats and stats.low_stock_products > 0 %}text-red-600{% endif %}">
+            {{ stats.low_stock_products if stats is defined and stats else 0 }}
+        </p>
+        {% if stats is defined and stats and stats.low_stock_products > 0 %}
+        <p class="text-xs text-red-500 mt-1">Потребують поповнення</p>
+        {% endif %}
+    </div>
+
+    <!-- Quick actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <span class="text-sm font-medium text-gray-500 block mb-4">Швидкi дii</span>
+        <div class="space-y-2">
+            <a href="/admin/products/create" class="flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition w-full justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Додати товар
+            </a>
+            <a href="/admin/orders" class="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition w-full justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                Переглянути замовлення
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

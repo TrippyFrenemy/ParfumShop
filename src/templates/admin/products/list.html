@@ -1,0 +1,157 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Товари{% endblock %}
+{% block page_title %}Товари{% endblock %}
+
+{% block content %}
+<!-- Header row -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+        <p class="text-sm text-gray-500">Всього товарiв: {{ products | length if products is defined else 0 }}</p>
+    </div>
+    <a href="/admin/products/create" class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Додати товар
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" action="/admin/products" class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1">
+            <input type="text" name="search" value="{{ search if search is defined else '' }}" placeholder="Пошук за назвою або брендом..."
+                   class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition">
+        </div>
+        <div class="w-full sm:w-48">
+            <select name="category_id" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition bg-white">
+                <option value="">Всi категорii</option>
+                {% if categories is defined %}
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if category_id is defined and category_id == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+                {% endif %}
+            </select>
+        </div>
+        <button type="submit" class="px-6 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition">
+            Фiльтрувати
+        </button>
+    </form>
+</div>
+
+<!-- Products table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-100">
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600 w-16">Фото</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Назва</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Бренд</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Категорiя</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Цiна</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">Знижка</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Залишок</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">Статус</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Дii</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% if products is defined %}
+                {% for product in products %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-3">
+                        {% if product.main_image %}
+                        <img src="{{ product.main_image }}" alt="{{ product.name }}" class="w-12 h-12 rounded-lg object-cover border border-gray-100">
+                        {% else %}
+                        <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <p class="font-medium text-gray-900">{{ product.name }}</p>
+                        {% if product.volume_ml %}
+                        <p class="text-xs text-gray-400">{{ product.volume_ml }} мл</p>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 hidden md:table-cell">{{ product.brand or '---' }}</td>
+                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">{{ product.category.name if product.category else '---' }}</td>
+                    <td class="px-4 py-3 text-right font-medium text-gray-900">{{ product.retail_price }} грн</td>
+                    <td class="px-4 py-3 text-right hidden sm:table-cell">
+                        {% if product.discount_price %}
+                        <span class="text-red-600 font-medium">{{ product.discount_price }} грн</span>
+                        {% else %}
+                        <span class="text-gray-400">---</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right hidden md:table-cell">
+                        {% if product.stock_quantity <= 0 %}
+                        <span class="text-red-600 font-medium">0</span>
+                        {% elif product.stock_quantity <= 5 %}
+                        <span class="text-amber-600 font-medium">{{ product.stock_quantity }}</span>
+                        {% else %}
+                        <span class="text-gray-900">{{ product.stock_quantity }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center hidden sm:table-cell">
+                        {% if product.is_active %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Активний</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Неактивний</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            <a href="/admin/products/{{ product.id }}/edit" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Редагувати">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </a>
+                            <form method="POST" action="/admin/products/{{ product.id }}/delete" onsubmit="return confirm('Видалити товар &laquo;{{ product.name }}&raquo;?')">
+                                <button type="submit" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Видалити">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+
+                {% if not products or products | length == 0 %}
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        <p>Товарiв не знайдено</p>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if total_pages is defined and total_pages > 1 %}
+<div class="flex items-center justify-center gap-1 mt-6">
+    {% if page is defined and page > 1 %}
+    <a href="?page={{ page - 1 }}{% if search %}&search={{ search }}{% endif %}{% if category_id %}&category_id={{ category_id }}{% endif %}"
+       class="px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+        &laquo; Назад
+    </a>
+    {% endif %}
+
+    {% for p in range(1, total_pages + 1) %}
+    <a href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if category_id %}&category_id={{ category_id }}{% endif %}"
+       class="px-3 py-2 text-sm rounded-lg transition {% if page is defined and page == p %}bg-brand-600 text-white{% else %}text-gray-600 bg-white border border-gray-200 hover:bg-gray-50{% endif %}">
+        {{ p }}
+    </a>
+    {% endfor %}
+
+    {% if page is defined and page < total_pages %}
+    <a href="?page={{ page + 1 }}{% if search %}&search={{ search }}{% endif %}{% if category_id %}&category_id={{ category_id }}{% endif %}"
+       class="px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+        Далi &raquo;
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

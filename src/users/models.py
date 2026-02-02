@@ -22,8 +22,16 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(SqlEnum(UserRole), nullable=False, default=UserRole.CLIENT)
 
+    phone = Column(String(20), nullable=True)
+
     # Google subject (openid "sub")
     google_sub = Column(String, unique=True, nullable=True, index=True)
+
+    # Delivery defaults
+    default_city = Column(String(255), nullable=True)
+    default_city_ref = Column(String(64), nullable=True)
+    default_warehouse = Column(String(255), nullable=True)
+    default_warehouse_ref = Column(String(64), nullable=True)
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)

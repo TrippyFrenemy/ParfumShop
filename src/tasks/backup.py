@@ -1,10 +1,13 @@
 import os
-from datetime import date
+import hashlib
 import subprocess
+from datetime import date
+
+import boto3
 import httpx
 from celery import shared_task
+
 from src.config import settings
-import hashlib
 
 
 def get_file_hash(path: str) -> str:
@@ -15,6 +18,31 @@ def get_file_hash(path: str) -> str:
                 continue
             h.update(line)
     return h.hexdigest()
+
+def _upload_backup_to_s3(filepath: str, object_key: str) -> str | None:
+    if not settings.S3_ACCESS_KEY:
+        return None
+    try:
+        client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.S3_ACCESS_KEY,
+            aws_secret_access_key=settings.S3_SECRET_KEY,
+            endpoint_url=settings.S3_ENDPOINT_URL or None,
+            region_name=settings.S3_REGION or None,
+        )
+        client.upload_file(
+            filepath,
+            settings.S3_BUCKET_NAME,
+            object_key,
+            ExtraArgs={"ContentType": "application/sql"},
+        )
+        url = f"{settings.S3_PUBLIC_URL.rstrip('/')}/{object_key}"
+        print(f"Бекап загружен в S3: {url}")
+        return url
+    except Exception as e:
+        print(f"Ошибка загрузки в S3: {e}")
+        return None
+
 
 @shared_task
 def send_db_backup_task():
@@ -49,6 +77,10 @@ def send_db_backup_task():
 
     with open(hash_path, "w") as f:
         f.write(current_hash)
+
+    today = date.today().isoformat()
+    s3_key = f"backups/{settings.DB_NAME}_{today}.sql"
+    _upload_backup_to_s3(filename, s3_key)
 
     print("✅ Бекап изменён. Отправка в Telegram...")
     try:

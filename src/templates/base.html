@@ -1,109 +1,242 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dobrotno App{% endblock %}</title>
+    <title>{% block title %}ParfumShop{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50:'#fdf2f8', 100:'#fce7f3', 200:'#fbcfe8', 300:'#f9a8d4', 400:'#f472b6', 500:'#ec4899', 600:'#db2777', 700:'#be185d', 800:'#9d174d', 900:'#831843' },
+                        dark: { 800:'#1e1e2e', 900:'#11111b' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .cart-drawer { transform: translateX(100%); transition: transform 0.3s ease; }
+        .cart-drawer.open { transform: translateX(0); }
+        .overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .overlay.open { opacity: 1; pointer-events: auto; }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-50 min-h-screen flex flex-col">
 
-    <!-- Навигация -->
-    <nav class="bg-white shadow py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center">
-        <a href="/dashboard" class="text-xl font-bold text-gray-700 hover:underline">Dobrotno App</a>
-        <div class="mt-2 sm:mt-0 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-            {% if user is defined and user %}
-                <span class="text-gray-600">{{ user.name | e }}</span>
-                {% if user.role == 'admin' and user.email == 'trippy' %}
-                    <a href="/cafe" class="text-gray-600">Кафе</a>
-                    <a href="/logs" class="bg-gray-800 text-white px-3 py-1 rounded hover:bg-gray-700 text-sm">Логи</a>
+    <!-- Top bar -->
+    <div class="bg-dark-900 text-gray-300 text-xs py-1.5">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <span>
+                    <svg class="inline w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                    {{ settings.shop_phone if settings is defined and settings and settings.shop_phone else '+380 XX XXX XX XX' }}
+                </span>
+            </div>
+            <div class="flex items-center gap-4">
+                {% if user is defined and user %}
+                    <a href="/users/me" class="hover:text-white transition">{{ user.name | e }}</a>
+                    {% if user.role in ['admin', 'manager', 'warehouse'] %}
+                        <a href="/admin/" class="hover:text-brand-400 transition">{{ t('global.nav_admin', 'Адмін-панель') }}</a>
+                    {% endif %}
+                    <a href="/auth/logout" class="hover:text-red-400 transition">{{ t('global.nav_logout', 'Вийти') }}</a>
+                {% else %}
+                    <a href="/auth/login" class="hover:text-white transition">{{ t('global.nav_login', 'Увійти') }}</a>
+                    <a href="/auth/register" class="hover:text-white transition">{{ t('global.nav_register', 'Реєстрація') }}</a>
                 {% endif %}
-                <a href="/notifications" class="relative text-gray-600 hover:text-blue-600" title="Уведомления">
-                    <span class="text-xl">🔔</span>
-                    <span id="notification-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Nav -->
+    <nav class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <a href="/" class="flex items-center gap-2 shrink-0">
+                    <div class="w-9 h-9 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    </div>
+                    <span class="text-xl font-bold text-gray-900">ParfumShop</span>
                 </a>
-                <a href="/users/me" class="text-blue-600 hover:underline">Мой аккаунт</a>
-                <a href="/auth/logout" class="text-red-500 hover:underline">Выход</a>
-            {% endif %}
+
+                <!-- Search (desktop) -->
+                <div class="hidden md:flex flex-1 max-w-lg mx-8">
+                    <form action="/catalog" method="GET" class="w-full relative">
+                        <input type="text" name="search" placeholder="{{ t('global.search_placeholder', 'Пошук парфумів...') }}"
+                               value="{{ search_query if search_query is defined else '' }}"
+                               class="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-full text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition">
+                        <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Nav links -->
+                <div class="flex items-center gap-2 sm:gap-4">
+                    <a href="/catalog" class="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-brand-600 transition px-3 py-2 rounded-lg hover:bg-brand-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        {{ t('global.nav_catalog', 'Каталог') }}
+                    </a>
+                    {% if user is defined and user %}
+                    <a href="/orders/my" class="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-brand-600 transition px-3 py-2 rounded-lg hover:bg-brand-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        {{ t('global.nav_orders', 'Замовлення') }}
+                    </a>
+                    {% endif %}
+
+                    <!-- Cart button -->
+                    <button onclick="toggleCartDrawer()" class="relative flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-brand-600 transition px-3 py-2 rounded-lg hover:bg-brand-50">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                        <span class="hidden sm:inline">{{ t('global.nav_cart', 'Кошик') }}</span>
+                        <span id="cart-count" class="hidden absolute -top-1 -right-1 bg-brand-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">0</span>
+                    </button>
+                </div>
+
+                <!-- Mobile menu button -->
+                <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="md:hidden ml-2 p-2 text-gray-600 hover:text-brand-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+            </div>
+
+            <!-- Mobile menu -->
+            <div id="mobile-menu" class="hidden md:hidden pb-4 border-t">
+                <form action="/catalog" method="GET" class="mt-3 mb-2">
+                    <input type="text" name="search" placeholder="{{ t('global.search_placeholder', 'Пошук парфумів...') }}" class="w-full px-4 py-2.5 border border-gray-200 rounded-full text-sm focus:outline-none focus:border-brand-400">
+                </form>
+                <a href="/catalog" class="block px-3 py-2 text-sm text-gray-700 hover:bg-brand-50 rounded">{{ t('global.nav_catalog', 'Каталог') }}</a>
+                <a href="/contacts" class="block px-3 py-2 text-sm text-gray-700 hover:bg-brand-50 rounded">{{ t('global.nav_contacts', 'Контакти') }}</a>
+                {% if user is defined and user %}
+                <a href="/orders/my" class="block px-3 py-2 text-sm text-gray-700 hover:bg-brand-50 rounded">{{ t('global.nav_my_orders', 'Мої замовлення') }}</a>
+                {% endif %}
+            </div>
         </div>
     </nav>
 
-    <!-- Контент -->
-    <main class="p-4 sm:p-6 lg:p-8 max-w-full overflow-x-auto">
-        {% block content %}{% endblock %}
-        {% if request.query_params.get('success') == '1' %}
-        <div id="success-toast" class="fixed top-6 right-6 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded shadow-lg z-50 transition-opacity duration-500">
-            ✅ Заказ успешно создан
-            {% if request.cookies.get('last_order_info') %}
-            <div class="text-sm mt-1 text-gray-700">
-                Заказ: {{ request.cookies.get('last_order_info').split(',')[0] | e }} –
-                {{ request.cookies.get('last_order_info').split(',')[1] | e }} на 
-                {{ request.cookies.get('last_order_info').split(',')[2] | e }} грн
-            </div>
-            {% endif %}
+    <!-- Cart drawer overlay -->
+    <div id="cart-overlay" class="overlay fixed inset-0 bg-black/40 z-50" onclick="toggleCartDrawer()"></div>
+
+    <!-- Cart drawer -->
+    <div id="cart-drawer" class="cart-drawer fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h2 class="text-lg font-semibold text-gray-900">{{ t('global.cart_drawer_title', 'Кошик') }}</h2>
+            <button onclick="toggleCartDrawer()" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
-        {% endif %}
+        <div id="cart-drawer-content" class="flex-1 overflow-y-auto px-6 py-4">
+            <p class="text-gray-500 text-center py-12">{{ t('global.cart_drawer_empty', 'Кошик порожній') }}</p>
+        </div>
+        <div id="cart-drawer-footer" class="hidden border-t px-6 py-4 space-y-3">
+            <div class="flex justify-between text-base font-semibold">
+                <span>{{ t('global.cart_drawer_total', 'Разом:') }}</span>
+                <span id="cart-drawer-total">0 грн</span>
+            </div>
+            <a href="/checkout" class="block w-full text-center bg-brand-600 text-white py-3 rounded-xl font-medium hover:bg-brand-700 transition">
+                {{ t('global.cart_drawer_checkout', 'Оформити замовлення') }}
+            </a>
+            <a href="/cart" class="block w-full text-center border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition">
+                {{ t('global.cart_drawer_view', 'Переглянути кошик') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    {% if request.query_params.get('success') %}
+    <div id="success-toast" class="fade-in fixed top-20 right-6 bg-green-50 border border-green-200 text-green-800 px-5 py-3 rounded-xl shadow-lg z-50 max-w-sm">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-sm font-medium">{{ success_message if success_message is defined else 'Операцію виконано успішно' }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main content -->
+    <main class="flex-1">
+        {% block content %}{% endblock %}
     </main>
-    
 
-</body>
-</html>
+    <!-- Footer -->
+    <footer class="bg-dark-900 text-gray-400 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                        </div>
+                        <span class="text-lg font-bold text-white">ParfumShop</span>
+                    </div>
+                    <p class="text-sm leading-relaxed">{{ t('global.footer_tagline', 'Інтернет-магазин оригінальної парфумерії. Найкращі аромати від провідних брендів.') }}</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{{ t('global.footer_nav_heading', 'Навігація') }}</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/" class="hover:text-white transition">{{ t('global.footer_nav_home', 'Головна') }}</a></li>
+                        <li><a href="/catalog" class="hover:text-white transition">{{ t('global.nav_catalog', 'Каталог') }}</a></li>
+                        <li><a href="/contacts" class="hover:text-white transition">{{ t('global.nav_contacts', 'Контакти') }}</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{{ t('global.footer_info_heading', 'Інформація') }}</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/contacts" class="hover:text-white transition">{{ t('global.footer_delivery_payment', 'Доставка та оплата') }}</a></li>
+                        <li><a href="/contacts" class="hover:text-white transition">{{ t('global.footer_returns', 'Повернення товару') }}</a></li>
+                        <li><a href="/contacts" class="hover:text-white transition">{{ t('global.footer_about', 'Про нас') }}</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{{ t('global.footer_contacts_heading', 'Контакти') }}</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li>{{ settings.shop_phone if settings is defined and settings and settings.shop_phone else '+380 XX XXX XX XX' }}</li>
+                        <li>{{ settings.shop_email if settings is defined and settings and settings.shop_email else 'info@parfumshop.ua' }}</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-8 pt-6 text-center text-xs text-gray-500">
+                &copy; {{ now().year if now is defined else '2026' }} {{ t('global.footer_copyright', 'ParfumShop. Всі права захищені.') }}
+            </div>
+        </div>
+    </footer>
 
-<script>
-    async function refreshTokenIfNeeded() {
-        const exp = localStorage.getItem('access_exp');
-        if (exp && Date.now() > parseInt(exp)) {
+    <!-- Cart JS -->
+    <script src="/static/js/cart.js"></script>
+
+    <!-- Token refresh -->
+    <script>
+        async function refreshTokenIfNeeded() {
             try {
                 const res = await fetch("/auth/refresh", { method: "POST", credentials: "include" });
-                if (res.ok) {
-                    const now = Date.now();
-                    localStorage.setItem('access_exp', now + 30 * 60 * 1000); // +30 минут
-                } else {
-                    window.location.href = "/auth/login";
+                if (!res.ok && res.status === 401) {
+                    // Token expired, not logged in - that's ok for guests
                 }
-            } catch {
-                window.location.href = "/auth/login";
-            }
+            } catch {}
         }
-    }
+        setInterval(refreshTokenIfNeeded, 60000);
 
-    setInterval(refreshTokenIfNeeded, 60_000);
-
-    const toast = document.getElementById("success-toast");
-    if (toast) {
-        setTimeout(() => {
-        toast.classList.add("opacity-0");
-        }, 4000);
-        setTimeout(() => {
-        toast.remove();
-        }, 2500);
-        // Очистить куку после отображения
-        document.cookie = "last_order_info=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    }
-
-    // Обновление счетчика уведомлений
-    async function updateNotificationBadge() {
-        try {
-            const res = await fetch("/notifications/api/unread-count", { credentials: "include" });
-            if (res.ok) {
-                const data = await res.json();
-                const badge = document.getElementById("notification-badge");
-                if (badge && data.unread_count > 0) {
-                    badge.textContent = data.unread_count > 99 ? "99+" : data.unread_count;
-                    badge.classList.remove("hidden");
-                } else if (badge) {
-                    badge.classList.add("hidden");
-                }
-            }
-        } catch (error) {
-            // Игнорируем ошибки для не залогиненных пользователей
+        // Toast auto-hide
+        const toast = document.getElementById("success-toast");
+        if (toast) {
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 4000);
+            setTimeout(() => toast.remove(), 4500);
         }
-    }
 
-    // Обновляем счетчик при загрузке страницы и каждую минуту
-    if (document.getElementById("notification-badge")) {
-        updateNotificationBadge();
-        setInterval(updateNotificationBadge, 60_000);
-    }
-</script>
+        function toggleCartDrawer() {
+            document.getElementById('cart-drawer').classList.toggle('open');
+            document.getElementById('cart-overlay').classList.toggle('open');
+            document.body.style.overflow = document.getElementById('cart-drawer').classList.contains('open') ? 'hidden' : '';
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

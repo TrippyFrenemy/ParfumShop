@@ -1,75 +1,143 @@
 {% extends "base.html" %}
 
-{% block title %}Главная{% endblock %}
+{% block title %}ParfumShop — Інтернет-магазин парфумерії{% endblock %}
 
 {% block content %}
-<div class="w-full px-4 lg:px-8 py-6">
-  <!-- Шапка -->
-  <header class="mb-10">
-    <h2 class="text-3xl font-bold mb-2">Добро пожаловать, {{ user.name }}!</h2>
-    <p class="text-gray-600">
-      Вы вошли как 
-      <span class="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">
-        <span class="h-2 w-2 rounded-full {% if user.role == 'admin' %}bg-red-500{% elif user.role == 'manager' %}bg-blue-500{% else %}bg-gray-400{% endif %}"></span>
-        {{ user.role }}
-      </span>
-    </p>
-  </header>
-
-  {% if user.role in ['admin', 'manager'] %}
-  <!-- Верхний ряд: Заказы, Возвраты, Смены -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-    <!-- 📦 Заказы -->
-    <section class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6 flex flex-col">
-      <h3 class="text-lg font-semibold text-gray-800 mb-4">📦 Заказы</h3>
-      <div class="flex flex-col gap-3 flex-grow">
-        <a href="/orders/create" class="w-full text-center rounded-lg bg-blue-600 text-white px-5 py-2.5 hover:bg-blue-700 transition">➕ Добавить заказ</a>
-        <a href="/orders/{{ user.id }}/list" class="w-full text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">📋 Список заказов {{ user.name }}</a>
-        {% if user.role == 'admin' %}
-        <a href="/orders/all/list" class="w-full text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">📋 Список заказов всех пользователей</a>
-        {% endif %}
-        <a href="/order-types/" class="w-full text-center rounded-lg bg-indigo-600 text-white px-5 py-2.5 hover:bg-indigo-700 transition">⚙️ Типы заказов</a>
-      </div>
-    </section>
-
-    <!-- ↩️ Возвраты -->
-    <section class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6 flex flex-col">
-      <h3 class="text-lg font-semibold text-gray-800 mb-4">↩️ Возвраты</h3>
-      <div class="flex flex-col gap-3 flex-grow">
-        <a href="/returns/create" class="w-full text-center rounded-lg bg-red-600 text-white px-5 py-2.5 hover:bg-red-700 transition">➖ Добавить возврат</a>
-        <a href="/returns/{{ user.id }}/list" class="w-full text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">📄 Список возвратов {{ user.name }}</a>
-        {% if user.role == 'admin' %}
-        <a href="/returns/all/list" class="w-full text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">📄 Список возвратов всех пользователей</a>
-        {% endif %}
-      </div>
-    </section>
-
-    <!-- 📊 Смены и касса -->
-    <section class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6 flex flex-col">
-      <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Смены и касса</h3>
-      <div class="flex flex-col gap-3 flex-grow">
-        <a href="/shifts/create" class="w-full text-center rounded-lg bg-green-600 text-white px-5 py-2.5 hover:bg-green-700 transition">📅 Добавить смену</a>
-        <a href="/shifts/list" class="w-full text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">📈 Список смен</a>
-        <a href="/reports/monthly" class="w-full text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">📊 Отчёт по месяцам</a>
-        {% if user.role == 'admin' %}
-        <a href="/reports/telegram" class="w-full text-center rounded-lg bg-purple-600 text-white px-5 py-2.5 hover:bg-purple-700 transition">📨 Отправить отчёт в Telegram</a>
-        {% endif %}
-      </div>
-    </section>
-
-  </div>
-  {% endif %}
-  {% if user.role in ['admin', 'manager', 'cashier'] %}
-  <!-- Отдельная секция: Магазины -->
-  <section class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">🏬 Магазины</h3>
-    <div class="flex flex-col gap-3">
-      <!-- <a href="" class="w-full sm:w-64 text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">В разработке</a> -->
-      <a href="/stores/" class="w-full sm:w-64 text-center rounded-lg bg-gray-800 text-white px-5 py-2.5 hover:bg-gray-900 transition">Список магазинов</a>
+<!-- Hero Section -->
+<section class="relative bg-gradient-to-br from-gray-900 via-gray-800 to-brand-900 overflow-hidden">
+    <div class="absolute inset-0 opacity-10">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-brand-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div class="absolute bottom-0 left-0 w-80 h-80 bg-brand-400 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
     </div>
-  </section>
+    <div class="max-w-7xl mx-auto px-4 py-20 md:py-28 relative z-10">
+        <div class="max-w-2xl">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
+                {{ t('home.hero_title', 'Ваш ідеальний <span class="text-brand-400">аромат</span> чекає') }}
+            </h1>
+            <p class="text-lg text-gray-300 mb-8 leading-relaxed">
+                {{ t('home.hero_subtitle', 'Оригінальна парфумерія від провідних світових брендів. Безкоштовна доставка від 1000 грн.') }}
+            </p>
+            <div class="flex flex-wrap gap-4">
+                <a href="/catalog" class="inline-flex items-center gap-2 bg-brand-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-brand-700 transition shadow-lg shadow-brand-600/25">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    {{ t('home.hero_cta_catalog', 'Перейти до каталогу') }}
+                </a>
+                <a href="/contacts" class="inline-flex items-center gap-2 bg-white/10 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-white/20 transition backdrop-blur-sm border border-white/10">
+                    {{ t('home.hero_cta_contacts', 'Контакти') }}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
 
-  {% endif %}
-</div>
+<!-- Features bar -->
+<section class="bg-white border-b">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">100% оригінал</p>
+                    <p class="text-xs text-gray-500">Гарантія якості</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">Швидка доставка</p>
+                    <p class="text-xs text-gray-500">Нова Пошта / Укрпошта</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">Зручна оплата</p>
+                    <p class="text-xs text-gray-500">На карту / при отриманні</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">Оптові ціни</p>
+                    <p class="text-xs text-gray-500">Знижки від 5 шт</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Categories -->
+{% if categories is defined and categories %}
+<section class="max-w-7xl mx-auto px-4 py-14">
+    <div class="flex items-center justify-between mb-8">
+        <h2 class="text-2xl font-bold text-gray-900">Категорії</h2>
+        <a href="/catalog" class="text-sm text-brand-600 hover:text-brand-700 font-medium">Усі категорії &rarr;</a>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        {% for cat in categories %}
+        <a href="/catalog/{{ cat.slug }}" class="group relative bg-white rounded-2xl border border-gray-100 p-5 text-center hover:shadow-lg hover:border-brand-200 transition-all duration-300">
+            {% if cat.image_url %}
+            <img src="{{ cat.image_url }}" alt="{{ cat.name }}" class="w-16 h-16 mx-auto mb-3 object-contain rounded-lg group-hover:scale-110 transition-transform">
+            {% else %}
+            <div class="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-brand-100 to-brand-50 rounded-lg flex items-center justify-center">
+                <svg class="w-7 h-7 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+            </div>
+            {% endif %}
+            <h3 class="text-sm font-semibold text-gray-800 group-hover:text-brand-600 transition">{{ cat.name }}</h3>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Featured / Discount Products -->
+{% if featured_products is defined and featured_products %}
+<section class="bg-white py-14">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-2xl font-bold text-gray-900">Акційні пропозиції</h2>
+            <a href="/catalog?discount=1" class="text-sm text-brand-600 hover:text-brand-700 font-medium">Усі акції &rarr;</a>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {% for product in featured_products %}
+            {% include "partials/product_card.html" %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- New Products -->
+{% if new_products is defined and new_products %}
+<section class="max-w-7xl mx-auto px-4 py-14">
+    <div class="flex items-center justify-between mb-8">
+        <h2 class="text-2xl font-bold text-gray-900">Новинки</h2>
+        <a href="/catalog?sort=newest" class="text-sm text-brand-600 hover:text-brand-700 font-medium">Дивитись усі &rarr;</a>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+        {% for product in new_products %}
+        {% include "partials/product_card.html" %}
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- CTA Section -->
+<section class="bg-gradient-to-r from-brand-600 to-brand-700">
+    <div class="max-w-7xl mx-auto px-4 py-14 text-center">
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-4">Оптові замовлення</h2>
+        <p class="text-brand-100 mb-6 max-w-lg mx-auto">Спеціальні ціни при замовленні від 5 одиниць. Зверніться до нас для індивідуальної пропозиції.</p>
+        <a href="/contacts" class="inline-flex items-center gap-2 bg-white text-brand-700 px-8 py-3 rounded-xl font-semibold hover:bg-brand-50 transition">
+            Зв'язатися з нами
+        </a>
+    </div>
+</section>
 {% endblock %}

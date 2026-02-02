@@ -2,7 +2,6 @@ import secrets
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +17,8 @@ from src.config import settings
 from src.utils.ratelimit import is_blocked, register_failed_attempt, delete_attempt
 from src.utils.ip import get_real_ip
 
-templates = Jinja2Templates(directory="src/templates")
+from src.templating import templates
+
 router = APIRouter()
 
 redis = get_redis_client()

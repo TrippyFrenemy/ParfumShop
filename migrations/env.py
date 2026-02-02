@@ -13,6 +13,12 @@ sys.path.append(os.path.join(sys.path[0], 'src'))
 from src.config import settings
 from src.users.models import *
 from src.logs.models import *
+from src.products.models import *
+from src.cart.models import *
+from src.coupons.models import *
+from src.orders.models import *
+from src.settings.models import *
+from src.content.models import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

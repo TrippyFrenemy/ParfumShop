@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Мої замовлення — ParfumShop{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-8">{{ t('orders.page_title', 'Мої замовлення') }}</h1>
+
+    {% if orders is defined and orders %}
+    <div class="space-y-4">
+        {% for order in orders %}
+        <a href="/orders/{{ order.order_number }}" class="block bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-100 transition-all">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <span class="font-semibold text-gray-900">{{ order.order_number }}</span>
+                    <span class="text-sm text-gray-400 ml-3">{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                </div>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+                    {% if order.status.value == 'created' %}bg-yellow-100 text-yellow-800
+                    {% elif order.status.value == 'paid' %}bg-green-100 text-green-800
+                    {% elif order.status.value == 'processing' %}bg-blue-100 text-blue-800
+                    {% elif order.status.value == 'shipped' %}bg-purple-100 text-purple-800
+                    {% endif %}">
+                    {{ order.status_ua }}
+                </span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500">{{ order.items | length }} {{ 'товар' if order.items | length == 1 else 'товарів' }}</span>
+                <span class="font-semibold text-brand-600">{{ order.total }} грн</span>
+            </div>
+            {% if order.ttn %}
+            <div class="mt-2 text-xs text-gray-400">{{ t('orders.ttn_label', 'ТТН:') }} {{ order.ttn }}</div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+
+    {% include "partials/pagination.html" %}
+    {% else %}
+    <div class="text-center py-20">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <p class="text-lg text-gray-500 mb-4">{{ t('orders.empty_text', 'У вас ще немає замовлень') }}</p>
+        <a href="/catalog" class="inline-flex items-center gap-2 bg-brand-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-brand-700 transition">
+            {{ t('orders.empty_cta', 'Перейти до каталогу') }}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

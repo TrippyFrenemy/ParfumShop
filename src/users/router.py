@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +11,6 @@ from src.utils.redis_client import get_redis_client
 
 router = APIRouter(tags=["Users"])
 redis_client = get_redis_client()
-templates = Jinja2Templates(directory="src/templates")
 
 
 @router.get("/me")

@@ -1,7 +1,6 @@
 # src/logs/router.py
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
@@ -10,8 +9,9 @@ from src.auth.dependencies import get_admin_user
 from src.logs.models import UserLog
 from src.users.models import User
 
+from src.templating import templates
+
 router = APIRouter()
-templates = Jinja2Templates(directory="src/templates")
 
 @router.get("/", response_class=HTMLResponse)
 async def show_logs(
