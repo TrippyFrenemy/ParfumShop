@@ -42,6 +42,7 @@ packaging==26.0
 passlib==1.7.4
 prompt_toolkit==3.0.52
 propcache==0.4.1
+psycopg2==2.9.11
 pyasn1==0.6.2
 pycparser==3.0
 pydantic==2.12.5

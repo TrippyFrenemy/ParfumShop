@@ -1,4 +1,5 @@
 import math
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -597,9 +598,14 @@ async def admin_orders_list(
 ):
     from itertools import groupby
 
+    # Warehouse staff sees only paid orders
+    effective_status = status
+    if user.role.value == "warehouse" and not status:
+        effective_status = OrderStatus.PAID.value
+
     orders, total = await get_all_orders(
         session,
-        status=status,
+        status=effective_status,
         search=search,
         page=page,
         per_page=per_page,
@@ -649,6 +655,7 @@ async def admin_order_update_status(
     user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     await update_order_status(session, order_id, OrderStatus(status))
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders?success=Статус+оновлено", status_code=302)
 
 
@@ -660,6 +667,7 @@ async def admin_order_set_ttn(
     user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     await update_order_ttn(session, order_id, ttn)
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders?success=ТТН+встановлено", status_code=302)
 
 
@@ -683,6 +691,11 @@ async def admin_order_detail(
     if not order:
         return RedirectResponse("/admin/orders?error=Замовлення+не+знайдено", status_code=302)
 
+    # Record who viewed this order
+    order.last_viewed_by = user.full_name or user.email
+    order.last_viewed_at = datetime.now()
+    await session.commit()
+
     return templates.TemplateResponse(
         "admin/orders/detail.html",
         {
@@ -692,6 +705,15 @@ async def admin_order_detail(
             "active_page": "orders",
         },
     )
+
+
+async def _mark_order_modified(session: AsyncSession, order_id: int, user: User):
+    """Record who last modified the order."""
+    order = await session.get(Order, order_id)
+    if order:
+        order.last_modified_by = user.full_name or user.email
+        order.last_modified_at = datetime.now()
+        await session.commit()
 
 
 async def _recalculate_order_totals(session: AsyncSession, order_id: int):
@@ -744,6 +766,7 @@ async def admin_order_update_item(
 
     await session.commit()
     await _recalculate_order_totals(session, order_id)
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders/{order_id}?success=Товар+оновлено", status_code=302)
 
 
@@ -761,6 +784,7 @@ async def admin_order_remove_item(
         await session.delete(item)
         await session.commit()
         await _recalculate_order_totals(session, order_id)
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders/{order_id}?success=Товар+видалено", status_code=302)
 
 
@@ -830,6 +854,7 @@ async def admin_order_add_item(
 
     await session.commit()
     await _recalculate_order_totals(session, order_id)
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders/{order_id}?success=Товар+додано", status_code=302)
 
 
@@ -857,6 +882,7 @@ async def admin_order_apply_coupon(
     if order.total < 0:
         order.total = Decimal("0")
     await session.commit()
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders/{order_id}?success=Купон+застосовано", status_code=302)
 
 
@@ -874,6 +900,7 @@ async def admin_order_custom_total(
 
     order.total = Decimal(custom_total)
     await session.commit()
+    await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders/{order_id}?success=Суму+оновлено", status_code=302)
 
 

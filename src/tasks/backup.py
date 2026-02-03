@@ -79,7 +79,7 @@ def send_db_backup_task():
         f.write(current_hash)
 
     today = date.today().isoformat()
-    s3_key = f"backups/{settings.DB_NAME}_{today}.sql"
+    s3_key = f"backups/parfum_db/{today}/{settings.DB_NAME}_{today}.sql"
     _upload_backup_to_s3(filename, s3_key)
 
     print("✅ Бекап изменён. Отправка в Telegram...")

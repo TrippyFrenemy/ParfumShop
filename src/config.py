@@ -57,5 +57,7 @@ class Settings(BaseSettings):
     S3_REGION: str
     S3_PUBLIC_URL: str
 
+    URL: str = "http://localhost:8000"
+
 
 settings = Settings()

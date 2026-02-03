@@ -82,6 +82,11 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+    last_viewed_by = Column(String(255), nullable=True)
+    last_viewed_at = Column(DateTime, nullable=True)
+    last_modified_by = Column(String(255), nullable=True)
+    last_modified_at = Column(DateTime, nullable=True)
+
     user = relationship("User", backref="orders")
     coupon = relationship("Coupon")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

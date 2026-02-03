@@ -12,6 +12,7 @@ from src.cart.service import get_cart, clear_cart
 from src.coupons.service import validate_coupon
 from src.database import get_async_session
 from src.orders.service import create_order, get_order_by_number, get_user_orders
+from src.utils.telegram import notify_new_order
 from src.settings.models import ShopSettings
 from src.users.models import User
 
@@ -123,6 +124,12 @@ async def create_order_endpoint(
                 "error": str(e),
             },
         )
+
+    # Notify staff via Telegram (fire-and-forget, don't block checkout)
+    try:
+        await notify_new_order(order)
+    except Exception:
+        pass
 
     # Clear the cart after successful order
     await clear_cart(session, cart.id)
