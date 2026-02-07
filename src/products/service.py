@@ -421,7 +421,7 @@ async def get_brands(
         select(distinct(Product.brand))
         .where(Product.brand.isnot(None))
         .where(Product.is_active.is_(True))
-        .order_by(Product.brand)
+        .order_by(Product.brand.asc())
     )
     result = await session.execute(stmt)
     return [row[0] for row in result.all()]
