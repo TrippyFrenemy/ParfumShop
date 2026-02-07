@@ -49,14 +49,12 @@
                             <input type="radio" name="delivery_method" value="nova_poshta" checked class="peer hidden" onchange="switchDelivery('np')">
                             <div class="border-2 border-gray-200 peer-checked:border-brand-500 peer-checked:bg-brand-50 rounded-xl p-4 text-center transition">
                                 <p class="font-semibold text-sm text-gray-800">{{ t('checkout.np_label', 'Нова Пошта') }}</p>
-                                <p class="text-xs text-gray-500 mt-0.5">{{ t('checkout.np_days', '1-3 дні') }}</p>
                             </div>
                         </label>
                         <label class="flex-1 cursor-pointer">
                             <input type="radio" name="delivery_method" value="ukrposhta" class="peer hidden" onchange="switchDelivery('up')">
                             <div class="border-2 border-gray-200 peer-checked:border-brand-500 peer-checked:bg-brand-50 rounded-xl p-4 text-center transition">
                                 <p class="font-semibold text-sm text-gray-800">{{ t('checkout.ukr_label', 'Укрпошта') }}</p>
-                                <p class="text-xs text-gray-500 mt-0.5">{{ t('checkout.ukr_days', '3-7 днів') }}</p>
                             </div>
                         </label>
                     </div>

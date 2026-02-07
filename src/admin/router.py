@@ -692,7 +692,7 @@ async def admin_order_detail(
         return RedirectResponse("/admin/orders?error=Замовлення+не+знайдено", status_code=302)
 
     # Record who viewed this order
-    order.last_viewed_by = user.full_name or user.email
+    order.last_viewed_by = user.name or user.email
     order.last_viewed_at = datetime.now()
     await session.commit()
 
@@ -711,7 +711,7 @@ async def _mark_order_modified(session: AsyncSession, order_id: int, user: User)
     """Record who last modified the order."""
     order = await session.get(Order, order_id)
     if order:
-        order.last_modified_by = user.full_name or user.email
+        order.last_modified_by = user.name or user.email
         order.last_modified_at = datetime.now()
         await session.commit()
 
