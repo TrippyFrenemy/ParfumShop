@@ -2,6 +2,7 @@
 
 from datetime import date
 from typing import Optional
+from fastapi import Query
 
 
 def optional_date(value: Optional[str] = None) -> Optional[date]:
@@ -29,3 +30,20 @@ def optional_date(value: Optional[str] = None) -> Optional[date]:
 
     # Parse the string as a date
     return date.fromisoformat(value)
+
+
+def optional_float(param_name: str):
+    """Return a FastAPI dependency that parses optional float query params.
+
+    Empty strings are treated as None to avoid 422 on form submissions.
+    """
+
+    async def _parser(value: str | None = Query(None, alias=param_name)) -> float | None:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    return _parser

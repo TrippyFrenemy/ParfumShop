@@ -129,6 +129,7 @@ async def get_products(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     brand: Optional[str] = None,
+    sort: str = "newest",
     page: int = 1,
     per_page: int = 42,
     active_only: bool = True,
@@ -180,9 +181,19 @@ async def get_products(
         count_stmt = count_stmt.where(*conditions)
     total = (await session.execute(count_stmt)).scalar() or 0
 
+    # Sorting
+    if sort == "price_asc":
+        base = base.order_by(Product.retail_price.asc(), Product.created_at.desc())
+    elif sort == "price_desc":
+        base = base.order_by(Product.retail_price.desc(), Product.created_at.desc())
+    elif sort == "name":
+        base = base.order_by(Product.name.asc(), Product.created_at.desc())
+    else:
+        base = base.order_by(Product.created_at.desc())
+
     # Paginated results
     offset = (page - 1) * per_page
-    stmt = base.order_by(Product.created_at.desc()).offset(offset).limit(per_page)
+    stmt = base.offset(offset).limit(per_page)
     result = await session.execute(stmt)
     products = list(result.scalars().unique().all())
 

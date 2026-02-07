@@ -1,4 +1,5 @@
 import math
+from urllib.parse import urlencode
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -12,6 +13,7 @@ from src.products.schemas import CategoryOut, ProductOut, ProductListOut
 from src.users.models import User
 
 from src.templating import templates
+from src.utils.query_params import optional_float
 
 router = APIRouter()
 
@@ -19,6 +21,14 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _build_pagination_query(request: Request) -> str:
+    """Return current query string without page parameter."""
+    return urlencode(
+        [(key, value) for key, value in request.query_params.multi_items() if key != "page"],
+        doseq=True,
+    )
+
 
 def _product_to_out(product) -> dict:
     """Convert a Product ORM instance to a ProductOut-compatible dict."""
@@ -67,10 +77,11 @@ async def catalog_page(
     request: Request,
     search: Optional[str] = Query(None),
     brand: Optional[str] = Query(None),
-    min_price: Optional[float] = Query(None),
-    max_price: Optional[float] = Query(None),
+    min_price: Optional[float] = Depends(optional_float("min_price")),
+    max_price: Optional[float] = Depends(optional_float("max_price")),
+    sort: str = Query("newest", pattern="^(newest|price_asc|price_desc|name)$"),
     page: int = Query(1, ge=1),
-    per_page: int = Query(42, ge=1, le=100),
+    per_page: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(get_optional_user),
 ):
@@ -84,11 +95,13 @@ async def catalog_page(
         brand=brand,
         min_price=min_price,
         max_price=max_price,
+        sort=sort,
         page=page,
         per_page=per_page,
     )
 
     total_pages = math.ceil(total / per_page) if total else 1
+    pagination_query = _build_pagination_query(request)
 
     return templates.TemplateResponse(
         "catalog.html",
@@ -99,16 +112,19 @@ async def catalog_page(
             "categories": categories,
             "current_category": None,
             "search": search or "",
+            "search_query": search or "",
+            "sort": sort,
+            "page": page,
+            "per_page": per_page,
+            "pages": total_pages,
+            "total": total,
+            "pagination_query": pagination_query,
             "brands": brands,
             "filters": {
                 "brand": brand,
                 "min_price": min_price,
                 "max_price": max_price,
             },
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "pages": total_pages,
         },
     )
 
@@ -119,10 +135,11 @@ async def category_page(
     slug: str,
     search: Optional[str] = Query(None),
     brand: Optional[str] = Query(None),
-    min_price: Optional[float] = Query(None),
-    max_price: Optional[float] = Query(None),
+    min_price: Optional[float] = Depends(optional_float("min_price")),
+    max_price: Optional[float] = Depends(optional_float("max_price")),
+    sort: str = Query("newest", pattern="^(newest|price_asc|price_desc|name)$"),
     page: int = Query(1, ge=1),
-    per_page: int = Query(42, ge=1, le=100),
+    per_page: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(get_optional_user),
 ):
@@ -141,11 +158,13 @@ async def category_page(
         brand=brand,
         min_price=min_price,
         max_price=max_price,
+        sort=sort,
         page=page,
         per_page=per_page,
     )
 
     total_pages = math.ceil(total / per_page) if total else 1
+    pagination_query = _build_pagination_query(request)
 
     return templates.TemplateResponse(
         "catalog.html",
@@ -156,16 +175,19 @@ async def category_page(
             "categories": categories,
             "current_category": category,
             "search": search or "",
+            "search_query": search or "",
+            "sort": sort,
+            "page": page,
+            "per_page": per_page,
+            "pages": total_pages,
+            "total": total,
+            "pagination_query": pagination_query,
             "brands": brands,
             "filters": {
                 "brand": brand,
                 "min_price": min_price,
                 "max_price": max_price,
             },
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "pages": total_pages,
         },
     )
 
@@ -204,10 +226,11 @@ async def api_product_list(
     category_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
     brand: Optional[str] = Query(None),
-    min_price: Optional[float] = Query(None),
-    max_price: Optional[float] = Query(None),
+    min_price: Optional[float] = Depends(optional_float("min_price")),
+    max_price: Optional[float] = Depends(optional_float("max_price")),
+    sort: str = Query("newest", pattern="^(newest|price_asc|price_desc|name)$"),
     page: int = Query(1, ge=1),
-    per_page: int = Query(42, ge=1, le=100),
+    per_page: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Return a paginated JSON list of products."""
@@ -218,6 +241,7 @@ async def api_product_list(
         brand=brand,
         min_price=min_price,
         max_price=max_price,
+        sort=sort,
         page=page,
         per_page=per_page,
     )

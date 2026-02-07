@@ -12,19 +12,19 @@ engine = create_engine(SYNC_DB_URL)
 
 @shared_task
 def clean_old_logs() -> None:
-    """Delete user_logs entries older than 90 days."""
+    """Delete user_logs entries older than 7 days."""
     try:
         with engine.begin() as conn:
             result = conn.execute(
                 text(
                     """
                     DELETE FROM user_logs
-                    WHERE timestamp < CURRENT_DATE - INTERVAL '90 days'
+                    WHERE timestamp < CURRENT_DATE - INTERVAL '7 days'
                     """
                 )
             )
             deleted = result.rowcount
-        print(f"[CLEANUP] Deleted {deleted} old log entries (>90 days)")
+        print(f"[CLEANUP] Deleted {deleted} old log entries (>7 days)")
     except Exception as exc:
         print(f"[CLEANUP] Failed to clean old logs: {exc}")
 

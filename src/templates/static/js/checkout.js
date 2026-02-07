@@ -192,29 +192,45 @@ function switchNpType(type) {
 }
 
 // Coupon validation
+function parsePrice(text) {
+    if (!text) return 0;
+    const normalized = String(text).replace(/[^\d.,-]/g, '').replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 async function applyCoupon() {
     const code = document.getElementById('coupon-input').value.trim();
     const resultEl = document.getElementById('coupon-result');
+    const subtotalEl = document.getElementById('subtotal-amount');
+    const totalEl = document.getElementById('checkout-total');
     if (!code) return;
+
+    const subtotal = parsePrice(subtotalEl ? subtotalEl.textContent : totalEl.textContent);
 
     try {
         const res = await fetch('/coupons/validate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ code: code, cart_total: parseFloat(document.getElementById('checkout-total').textContent) || 0 })
+            body: JSON.stringify({ code: code, cart_total: subtotal })
         });
         const data = await res.json();
         resultEl.classList.remove('hidden');
 
         if (data.valid) {
+            const discount = Number(data.estimated_discount || 0);
+            const newTotal = Math.max(0, subtotal - discount);
             resultEl.className = 'mt-2 text-sm text-green-600';
-            resultEl.textContent = 'Купон застосовано! Знижка: ' + data.estimated_discount + ' грн';
+            resultEl.textContent = 'Купон застосовано! Знижка: ' + discount + ' грн';
             document.getElementById('discount-row').classList.remove('hidden');
-            document.getElementById('discount-amount').textContent = '-' + data.estimated_discount + ' грн';
+            document.getElementById('discount-amount').textContent = '-' + discount + ' грн';
+            totalEl.textContent = newTotal + ' грн';
         } else {
             resultEl.className = 'mt-2 text-sm text-red-600';
             resultEl.textContent = data.message || 'Недійсний купон';
+            document.getElementById('discount-row').classList.add('hidden');
+            totalEl.textContent = subtotal + ' грн';
         }
     } catch (e) {
         resultEl.classList.remove('hidden');

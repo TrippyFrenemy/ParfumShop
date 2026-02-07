@@ -17,6 +17,7 @@ from src.settings.models import ShopSettings
 from src.users.models import User
 
 from src.templating import templates
+from src.logs.middleware import logger
 
 router = APIRouter()
 
@@ -128,8 +129,8 @@ async def create_order_endpoint(
     # Notify staff via Telegram (fire-and-forget, don't block checkout)
     try:
         await notify_new_order(order)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"[TG] Failed to notify about order {order.order_number}: {exc}")
 
     # Clear the cart after successful order
     await clear_cart(session, cart.id)

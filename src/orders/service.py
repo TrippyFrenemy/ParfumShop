@@ -122,8 +122,10 @@ async def create_order(
         coupon.used_count = (coupon.used_count or 0) + 1
 
     await session.commit()
-    await session.refresh(order)
-    return order
+
+    stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
+    result = await session.execute(stmt)
+    return result.scalar_one()
 
 
 async def get_order_by_number(
@@ -228,8 +230,10 @@ async def update_order_status(
 
     order.status = status
     await session.commit()
-    await session.refresh(order)
-    return order
+
+    stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
+    result = await session.execute(stmt)
+    return result.scalar_one()
 
 
 async def update_order_ttn(
@@ -244,8 +248,10 @@ async def update_order_ttn(
 
     order.ttn = ttn
     await session.commit()
-    await session.refresh(order)
-    return order
+
+    stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
+    result = await session.execute(stmt)
+    return result.scalar_one()
 
 
 async def get_order_stats(session: AsyncSession) -> dict:

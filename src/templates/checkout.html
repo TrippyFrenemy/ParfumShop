@@ -172,7 +172,7 @@
                     <div class="border-t border-gray-100 pt-4 space-y-2">
                         <div class="flex justify-between text-sm">
                             <span class="text-gray-500">{{ t('checkout.items_total', 'Сума товарів:') }}</span>
-                            <span>{{ cart.total_price if cart else 0 }} грн</span>
+                            <span id="subtotal-amount">{{ cart.total_price if cart else 0 }} грн</span>
                         </div>
                         <div id="discount-row" class="hidden flex justify-between text-sm">
                             <span class="text-green-600">{{ t('checkout.discount_label', 'Знижка:') }}</span>

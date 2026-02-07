@@ -1,6 +1,12 @@
+import html
 import httpx
 from src.config import settings
 from src.logs.middleware import logger
+
+
+def _esc(v) -> str:
+    # Экранируем все динамические строки, чтобы не ломать HTML в Telegram
+    return html.escape("" if v is None else str(v), quote=False)
 
 
 async def notify_new_order(order) -> None:
@@ -9,42 +15,60 @@ async def notify_new_order(order) -> None:
         logger.warning("[TG] Telegram bot token or chat ID not configured")
         return
 
-    items_text = ""
-    for item in order.items:
-        items_text += f"  - {item.product_name} x{item.quantity} = {item.total} грн\n"
+    lines: list[str] = []
 
-    text = (
-        f"🛒 <b>Нове замовлення #{order.order_number}</b>\n\n"
-        f"👤 {order.full_name}\n"
-        f"📞 {order.phone}\n"
-    )
+    # Заголовок
+    lines.append(f"🛒 <b>Нове замовлення №{_esc(order.order_number)}</b>")
+
+    # Клиент
+    lines.append("")
+    lines.append(f"👤 <b>{_esc(order.full_name)}</b>")
+    lines.append(f"📞 {_esc(order.phone)}")
     if order.email:
-        text += f"📧 {order.email}\n"
-    text += (
-        f"\n📦 {order.delivery_method_ua}\n"
-    )
-    if order.city:
-        text += f"🏙 {order.city}\n"
-    if order.warehouse:
-        text += f"🏢 {order.warehouse}\n"
-    if order.address:
-        text += f"📍 {order.address}\n"
-    text += (
-        f"\n<b>Товари:</b>\n{items_text}"
-        f"\n💰 <b>Всього: {order.total} грн</b>\n"
-    )
-    if order.comment:
-        text += f"\n💬 {order.comment}\n"
+        lines.append(f"📧 {_esc(order.email)}")
 
-    # Admin panel link — relative, will be prefixed by staff
-    text += f"\n🔗 <a href='{settings.URL}/admin/orders/{order.id}'>Переглянути в адмiн-панелi</a>"
+    # Доставка
+    lines.append("")
+    lines.append(f"📦 <b>Доставка:</b> {_esc(order.delivery_method_ua)}")
+    if order.city:
+        lines.append(f"🏙 {_esc(order.city)}")
+    if order.warehouse:
+        lines.append(f"🏢 {_esc(order.warehouse)}")
+    if order.address:
+        lines.append(f"📍 {_esc(order.address)}")
+
+    # Товары
+    lines.append("")
+    lines.append("<b>Товари:</b>")
+    for item in order.items:
+        lines.append(
+            f"• {_esc(item.product_name)} ×{_esc(item.quantity)} — <b>{_esc(item.total)} грн</b>"
+        )
+
+    # Итоги
+    lines.append("")
+    lines.append(f"💰 <b>Всього:</b> <b>{_esc(order.total)} грн</b>")
+
+    if order.comment:
+        lines.append("")
+        lines.append(f"💬 <b>Коментар:</b> {_esc(order.comment)}")
+
+    # Ссылка в админку (нормальный кликабельный anchor)
+    base = (settings.URL or "").rstrip("/")
+    admin_url = f"{base}/admin/orders/{order.id}"
+    lines.append("")
+    lines.append(f'🔗 <a href="{html.escape(admin_url, quote=True)}">Переглянути в адмін-панелі    {admin_url}    </a>')
+
+    text = "\n".join(lines)
 
     url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": settings.TG_CHAT_ID,
         "text": text,
         "parse_mode": "HTML",
+        "disable_web_page_preview": True,
     }
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url=url, json=payload, timeout=10.0)
