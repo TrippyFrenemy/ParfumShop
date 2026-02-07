@@ -35,17 +35,9 @@ INITIAL_CONTENT: list[tuple[str, str, str, str, str]] = [
 
     # ========================= home (index.html) =========================
     ("home", "home.hero_title", 'Ваш iдеальний <span class="text-brand-400">аромат</span> чекає', "Герой: заголовок", "html"),
-    ("home", "home.hero_subtitle", "Оригiнальна парфумерiя вiд провiдних свiтових брендiв. Безкоштовна доставка вiд 1000 грн.", "Герой: пiдзаголовок", "text"),
+    ("home", "home.hero_subtitle", "Парфумерiя вiд провiдних свiтових брендiв.", "Герой: пiдзаголовок", "text"),
     ("home", "home.hero_cta_catalog", "Перейти до каталогу", "Герой: кнопка каталог", "short"),
     ("home", "home.hero_cta_contacts", "Контакти", "Герой: кнопка контакти", "short"),
-    ("home", "home.feature_1_title", "100% оригiнал", "Переваги 1: заголовок", "short"),
-    ("home", "home.feature_1_subtitle", "Гарантiя якостi", "Переваги 1: пiдпис", "short"),
-    ("home", "home.feature_2_title", "Швидка доставка", "Переваги 2: заголовок", "short"),
-    ("home", "home.feature_2_subtitle", "Нова Пошта / Укрпошта", "Переваги 2: пiдпис", "short"),
-    ("home", "home.feature_3_title", "Зручна оплата", "Переваги 3: заголовок", "short"),
-    ("home", "home.feature_3_subtitle", "На ФОП рахунок", "Переваги 3: пiдпис", "short"),
-    ("home", "home.feature_4_title", "Оптовi цiни", "Переваги 4: заголовок", "short"),
-    ("home", "home.feature_4_subtitle", "Знижки вiд 5 шт", "Переваги 4: пiдпис", "short"),
     ("home", "home.categories_heading", "Категорiї", "Секцiя: Категорiї", "short"),
     ("home", "home.categories_link", "Усi категорiї", "Посилання: усi категорiї", "short"),
     ("home", "home.featured_heading", "Акцiйнi пропозицiї", "Секцiя: Акцiї", "short"),
@@ -101,9 +93,7 @@ INITIAL_CONTENT: list[tuple[str, str, str, str, str]] = [
     ("product", "product.description_heading", "Опис", "Заголовок: опис", "short"),
     ("product", "product.delivery_heading", "Доставка", "Заголовок: доставка", "short"),
     ("product", "product.np_label", "Нова Пошта", "Доставка: НП", "short"),
-    ("product", "product.np_text", "Доставка 1-3 днi по Українi", "Доставка: текст НП", "short"),
     ("product", "product.ukr_label", "Укрпошта", "Доставка: УП", "short"),
-    ("product", "product.ukr_text", "Доставка 3-7 днiв", "Доставка: текст УП", "short"),
 
     # ========================= cart =========================
     ("cart", "cart.page_title", "Кошик", "Заголовок сторiнки", "short"),
@@ -121,9 +111,7 @@ INITIAL_CONTENT: list[tuple[str, str, str, str, str]] = [
     ("checkout", "checkout.email_label", "Email", "Лейбл: email", "short"),
     ("checkout", "checkout.delivery_heading", "Доставка", "Заголовок: доставка", "short"),
     ("checkout", "checkout.np_label", "Нова Пошта", "Доставка: НП", "short"),
-    ("checkout", "checkout.np_days", "1-3 днi", "Доставка: термiн НП", "short"),
     ("checkout", "checkout.ukr_label", "Укрпошта", "Доставка: УП", "short"),
-    ("checkout", "checkout.ukr_days", "3-7 днiв", "Доставка: термiн УП", "short"),
     ("checkout", "checkout.city_label", "Мiсто", "Лейбл: мiсто", "short"),
     ("checkout", "checkout.warehouse_label", "Вiддiлення", "Лейбл: вiддiлення", "short"),
     ("checkout", "checkout.comment_heading", "Коментар", "Заголовок: коментар", "short"),

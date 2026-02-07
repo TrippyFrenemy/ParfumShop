@@ -130,7 +130,7 @@ async def get_products(
     max_price: Optional[float] = None,
     brand: Optional[str] = None,
     page: int = 1,
-    per_page: int = 12,
+    per_page: int = 42,
     active_only: bool = True,
 ) -> tuple[list[Product], int]:
     """

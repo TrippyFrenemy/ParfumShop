@@ -70,7 +70,7 @@ async def catalog_page(
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(12, ge=1, le=60),
+    per_page: int = Query(42, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(get_optional_user),
 ):
@@ -105,12 +105,10 @@ async def catalog_page(
                 "min_price": min_price,
                 "max_price": max_price,
             },
-            "pagination": {
-                "page": page,
-                "per_page": per_page,
-                "total": total,
-                "pages": total_pages,
-            },
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "pages": total_pages,
         },
     )
 
@@ -124,7 +122,7 @@ async def category_page(
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(12, ge=1, le=60),
+    per_page: int = Query(42, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(get_optional_user),
 ):
@@ -164,12 +162,10 @@ async def category_page(
                 "min_price": min_price,
                 "max_price": max_price,
             },
-            "pagination": {
-                "page": page,
-                "per_page": per_page,
-                "total": total,
-                "pages": total_pages,
-            },
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "pages": total_pages,
         },
     )
 
@@ -211,7 +207,7 @@ async def api_product_list(
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(12, ge=1, le=60),
+    per_page: int = Query(42, ge=1, le=100),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Return a paginated JSON list of products."""

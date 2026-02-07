@@ -16,7 +16,7 @@ celery_app.conf.broker_transport_options = {
     "max_retries": 3
 }
 
-celery_app.conf.timezone = "Europe/Kiev"
+celery_app.conf.timezone = "Europe/Kyiv"
 celery_app.conf.beat_schedule = {
     "backup-every-12-hours": {
         "task": "src.tasks.backup.send_db_backup_task",

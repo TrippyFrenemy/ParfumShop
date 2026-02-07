@@ -200,7 +200,7 @@
                     <h4 class="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{{ t('global.footer_contacts_heading', 'Контакти') }}</h4>
                     <ul class="space-y-2 text-sm">
                         <li>{{ settings.shop_phone if settings is defined and settings and settings.shop_phone else '+380 XX XXX XX XX' }}</li>
-                        <li>{{ settings.shop_email if settings is defined and settings and settings.shop_email else 'info@parfumshop.ua' }}</li>
+                        <li>{{ settings.shop_email if settings is defined and settings and settings.shop_email else '' }}</li>
                     </ul>
                 </div>
             </div>
