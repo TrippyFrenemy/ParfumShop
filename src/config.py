@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     SECRET_MANAGER: str
 
     TG_BOT_TOKEN: str
+    TG_STAFF_CHAT_ID: str
     TG_CHAT_ID: str
 
     ADMIN_EMAIL: str
@@ -45,7 +46,6 @@ class Settings(BaseSettings):
     OAUTH_GOOGLE_REDIRECT_URI: str
 
     NP_API_KEY: str
-    TG_STAFF_CHAT_ID: str
     MIN_ORDER_AMOUNT: int
 
     DEBUG: bool = False

@@ -5,9 +5,8 @@ from src.logs.middleware import logger
 
 async def notify_new_order(order) -> None:
     """Send a Telegram message to staff chat about a new order."""
-    token = settings.TG_BOT_TOKEN
-    chat_id = settings.TG_STAFF_CHAT_ID
-    if not token or not chat_id:
+    if not settings.TG_BOT_TOKEN or not settings.TG_CHAT_ID:
+        logger.warning("[TG] Telegram bot token or chat ID not configured")
         return
 
     items_text = ""
@@ -40,16 +39,15 @@ async def notify_new_order(order) -> None:
     # Admin panel link — relative, will be prefixed by staff
     text += f"\n🔗 <a href='{settings.URL}/admin/orders/{order.id}'>Переглянути в адмiн-панелi</a>"
 
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": settings.TG_CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+    }
     try:
-            response = httpx.post(
-                url=f"https://api.telegram.org/bot{token}/sendMessage",
-                payload = {
-                    "chat_id": chat_id,
-                    "text": text,
-                    "parse_mode": "HTML",
-                    "disable_web_page_preview": True,
-                }
-            )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url=url, json=payload, timeout=10.0)
             if response.status_code != 200:
                 logger.warning(f"[TG] Failed to send notification: {response.status_code} {response.text}")
     except Exception as e:
