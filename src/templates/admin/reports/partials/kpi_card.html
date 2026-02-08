@@ -1,0 +1,44 @@
+<!-- KPI Card Macro -->
+{% macro render_kpi_card(title, value, change_percent=None, icon_color='brand', format='currency', icon_svg='') %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-medium text-gray-500">{{ title }}</h3>
+        <div class="w-10 h-10 bg-{{ icon_color }}-50 rounded-lg flex items-center justify-center flex-shrink-0">
+            {% if icon_svg %}
+                {{ icon_svg|safe }}
+            {% else %}
+                <svg class="w-5 h-5 text-{{ icon_color }}-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+            {% endif %}
+        </div>
+    </div>
+    <div class="text-2xl font-bold text-gray-900">
+        {% if format == 'currency' %}
+            {{ "{:,.2f}".format(value) }} ₴
+        {% elif format == 'number' %}
+            {{ "{:,}".format(value|int) }}
+        {% elif format == 'percentage' %}
+            {{ "{:.1f}".format(value) }}%
+        {% else %}
+            {{ value }}
+        {% endif %}
+    </div>
+    {% if change_percent is not none %}
+    <div class="mt-2 flex items-center text-xs">
+        {% if change_percent >= 0 %}
+        <svg class="w-3 h-3 text-green-600 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+        </svg>
+        <span class="text-green-600 font-medium">{{ "%.1f"|format(change_percent) }}%</span>
+        {% else %}
+        <svg class="w-3 h-3 text-red-600 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+        </svg>
+        <span class="text-red-600 font-medium">{{ "%.1f"|format(change_percent) }}%</span>
+        {% endif %}
+        <span class="text-gray-500 ml-1">vs попередній період</span>
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}

@@ -1,0 +1,86 @@
+<!-- Bar Chart Macro -->
+{% macro render_bar_chart(chart_id, title, api_endpoint, height='300px', horizontal=False) %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4">{{ title }}</h3>
+    <div class="relative" style="height: {{ height }};">
+        <canvas id="{{ chart_id }}"></canvas>
+        <div id="{{ chart_id }}-loading" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90">
+            <svg class="animate-spin h-8 w-8 text-brand-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+        <div id="{{ chart_id }}-error" class="hidden absolute inset-0 flex items-center justify-center bg-gray-50">
+            <div class="text-center">
+                <svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-sm text-gray-600">Помилка завантаження графіка</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(async function() {
+    const loading = document.getElementById('{{ chart_id }}-loading');
+    const errorDiv = document.getElementById('{{ chart_id }}-error');
+    const canvas = document.getElementById('{{ chart_id }}');
+
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const response = await fetch(`{{ api_endpoint }}?${params}`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const chartData = await response.json();
+
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: '{{ 'bar' if not horizontal else 'horizontalBar' }}',
+            data: chartData.data,
+            options: {
+                {% if horizontal %}
+                indexAxis: 'y',
+                {% endif %}
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.{{ 'x' if horizontal else 'y' }}.toLocaleString('uk-UA');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    {{ 'x' if horizontal else 'y' }}: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('uk-UA');
+                            }
+                        }
+                    }
+                },
+                ...chartData.options
+            }
+        });
+
+        loading.style.display = 'none';
+    } catch (error) {
+        console.error('Chart loading error:', error);
+        loading.style.display = 'none';
+        errorDiv.classList.remove('hidden');
+    }
+})();
+</script>
+{% endmacro %}

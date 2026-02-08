@@ -29,6 +29,7 @@ from src.coupons.router import router as coupons_router
 from src.delivery.router import router as delivery_router
 from src.orders.router import router as orders_router
 from src.admin.router import router as admin_router
+from src.reports.router import router as reports_router
 
 from src.utils.create_preconfig_users import create_user
 from src.config import settings
@@ -179,4 +180,10 @@ app.include_router(
     router=admin_router,
     prefix="/admin",
     tags=["Admin"],
+)
+
+app.include_router(
+    router=reports_router,
+    prefix="/admin",
+    tags=["Reports"],
 )

@@ -1,0 +1,153 @@
+<!-- Reports Filter Component -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" id="report-filters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+        <!-- Period selector -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Період</label>
+            <select name="period" id="period-select" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+                <option value="today">Сьогодні</option>
+                <option value="week">Тиждень</option>
+                <option value="month" selected>Місяць</option>
+                <option value="year">Рік</option>
+                <option value="custom">Власний період</option>
+            </select>
+        </div>
+
+        <!-- Date from (hidden by default) -->
+        <div id="date-from-wrapper" class="hidden">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Від</label>
+            <input type="date" name="date_from" id="date-from" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+        </div>
+
+        <!-- Date to (hidden by default) -->
+        <div id="date-to-wrapper" class="hidden">
+            <label class="block text-xs font-medium text-gray-600 mb-1">До</label>
+            <input type="date" name="date_to" id="date-to" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+        </div>
+
+        <!-- Category filter -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Категорія</label>
+            <select name="category_id" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+                <option value="">Всі категорії</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if request.query_params.get('category_id') == category.id|string %}selected{% endif %}>
+                    {{ category.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Brand filter with autocomplete -->
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Бренд</label>
+            <input type="text" name="brand" list="brands-list"
+                   value="{{ request.query_params.get('brand', '') }}"
+                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                   placeholder="Всі бренди">
+            <datalist id="brands-list">
+                {% for brand in brands %}
+                <option value="{{ brand }}">
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="flex items-end gap-2">
+            <button type="submit" class="flex-1 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
+                <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Застосувати
+            </button>
+            <button type="button" onclick="resetFilters()"
+                    class="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Compare with previous period -->
+        <div class="col-span-full mt-2 pt-2 border-t border-gray-200">
+            <label class="inline-flex items-center text-sm text-gray-600 cursor-pointer hover:text-gray-900 transition-colors">
+                <input type="checkbox" name="compare_previous" id="compare-previous" value="true"
+                       {% if request.query_params.get('compare_previous') == 'true' %}checked{% endif %}
+                       class="mr-2 rounded text-brand-600 focus:ring-2 focus:ring-brand-500">
+                <span>Порівняти з попереднім періодом</span>
+            </label>
+        </div>
+    </form>
+</div>
+
+<script>
+// Show/hide custom date inputs based on period selection
+document.getElementById('period-select').addEventListener('change', function(e) {
+    const isCustom = e.target.value === 'custom';
+    const dateFromWrapper = document.getElementById('date-from-wrapper');
+    const dateToWrapper = document.getElementById('date-to-wrapper');
+
+    if (isCustom) {
+        dateFromWrapper.classList.remove('hidden');
+        dateToWrapper.classList.remove('hidden');
+    } else {
+        dateFromWrapper.classList.add('hidden');
+        dateToWrapper.classList.add('hidden');
+        // Auto-fill dates based on period
+        setDateRange(e.target.value);
+    }
+});
+
+// Auto-fill date range based on period type
+function setDateRange(period) {
+    const today = new Date();
+    const dateFromInput = document.getElementById('date-from');
+    const dateToInput = document.getElementById('date-to');
+
+    // Always set "to" date as today
+    dateToInput.value = today.toISOString().split('T')[0];
+
+    let fromDate = new Date(today);
+
+    switch(period) {
+        case 'today':
+            fromDate = new Date(today);
+            break;
+        case 'week':
+            fromDate.setDate(fromDate.getDate() - 7);
+            break;
+        case 'month':
+            fromDate.setMonth(fromDate.getMonth() - 1);
+            break;
+        case 'year':
+            fromDate.setFullYear(fromDate.getFullYear() - 1);
+            break;
+    }
+
+    dateFromInput.value = fromDate.toISOString().split('T')[0];
+}
+
+// Reset filters to default
+function resetFilters() {
+    document.getElementById('report-filters').reset();
+    document.getElementById('compare-previous').checked = false;
+    document.getElementById('date-from-wrapper').classList.add('hidden');
+    document.getElementById('date-to-wrapper').classList.add('hidden');
+
+    // Get current tab and redirect to clean URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab') || 'overview';
+    window.location.href = `/admin/reports?tab=${currentTab}`;
+}
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', function() {
+    const periodSelect = document.getElementById('period-select');
+    if (periodSelect.value === 'custom') {
+        document.getElementById('date-from-wrapper').classList.remove('hidden');
+        document.getElementById('date-to-wrapper').classList.remove('hidden');
+    } else {
+        setDateRange(periodSelect.value);
+    }
+});
+</script>

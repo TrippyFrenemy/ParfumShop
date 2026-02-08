@@ -12,7 +12,7 @@ async def create_user(email, name, role, password):
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"✅ {role} уже существует, пропускаем создание")
+            print(f"[OK] {role} уже существует, пропускаем создание")
             return
 
         try:
@@ -24,6 +24,6 @@ async def create_user(email, name, role, password):
             )
             session.add(user)
             await session.commit()
-            print(f"✅ {role} создан")
+            print(f"[OK] {role} создан")
         except IntegrityError:
-            print(f"⚠️ {role} уже есть (integrity check)")
+            print(f"[WARN] {role} уже есть (integrity check)")
