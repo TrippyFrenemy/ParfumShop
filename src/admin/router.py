@@ -106,7 +106,7 @@ async def admin_products_list(
     search: Optional[str] = Query(None),
     category_id: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: Optional[str] = Query("100"),
+    per_page: Optional[str] = Query("all"),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
