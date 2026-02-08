@@ -207,6 +207,7 @@ async function applyCoupon() {
     if (!code) return;
 
     const subtotal = parsePrice(subtotalEl ? subtotalEl.textContent : totalEl.textContent);
+    console.log('Subtotal:', subtotal, 'Element text:', subtotalEl?.textContent);
 
     try {
         const res = await fetch('/coupons/validate', {
@@ -216,23 +217,35 @@ async function applyCoupon() {
             body: JSON.stringify({ code: code, cart_total: subtotal })
         });
         const data = await res.json();
+        console.log('Coupon response:', data);
         resultEl.classList.remove('hidden');
 
         if (data.valid) {
             const discount = Number(data.estimated_discount || 0);
             const newTotal = Math.max(0, subtotal - discount);
+            console.log('Discount:', discount, 'New Total:', newTotal, 'Total Element:', totalEl);
+
             resultEl.className = 'mt-2 text-sm text-green-600';
-            resultEl.textContent = 'Купон застосовано! Знижка: ' + discount + ' грн';
+            resultEl.textContent = 'Купон застосовано! Знижка: ' + discount.toFixed(2) + ' грн';
             document.getElementById('discount-row').classList.remove('hidden');
-            document.getElementById('discount-amount').textContent = '-' + discount + ' грн';
-            totalEl.textContent = newTotal + ' грн';
+            document.getElementById('discount-amount').textContent = '-' + discount.toFixed(2) + ' грн';
+
+            if (totalEl) {
+                totalEl.textContent = newTotal.toFixed(2) + ' грн';
+                console.log('Updated total element to:', totalEl.textContent);
+            } else {
+                console.error('Total element not found!');
+            }
         } else {
             resultEl.className = 'mt-2 text-sm text-red-600';
             resultEl.textContent = data.message || 'Недійсний купон';
             document.getElementById('discount-row').classList.add('hidden');
-            totalEl.textContent = subtotal + ' грн';
+            if (totalEl) {
+                totalEl.textContent = subtotal.toFixed(2) + ' грн';
+            }
         }
     } catch (e) {
+        console.error('Coupon error:', e);
         resultEl.classList.remove('hidden');
         resultEl.className = 'mt-2 text-sm text-red-600';
         resultEl.textContent = 'Помилка перевірки купону';

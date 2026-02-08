@@ -92,7 +92,7 @@ class ProductBase(BaseModel):
     discount_price: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     discount_start: Optional[datetime] = None
     discount_end: Optional[datetime] = None
-    stock_quantity: int = Field(0, ge=0)
+    in_stock: bool = True
     is_active: bool = True
 
 
@@ -111,7 +111,7 @@ class ProductUpdate(BaseModel):
     discount_price: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     discount_start: Optional[datetime] = None
     discount_end: Optional[datetime] = None
-    stock_quantity: Optional[int] = Field(None, ge=0)
+    in_stock: Optional[bool] = None
     is_active: Optional[bool] = None
     images: Optional[list[ProductImageCreate]] = None
     wholesale_tiers: Optional[list[WholesaleTierCreate]] = None
@@ -134,7 +134,7 @@ class ProductOut(BaseModel):
     discount_end: Optional[datetime] = None
     is_discount_active: bool = False
     effective_price: Decimal
-    stock_quantity: int
+    in_stock: bool
     is_active: bool
     main_image: Optional[str] = None
     images: list[ProductImageOut] = []

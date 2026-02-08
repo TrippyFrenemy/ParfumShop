@@ -16,6 +16,34 @@ from src.products.schemas import (
 
 
 # =========================================================================
+# Text Preprocessing
+# =========================================================================
+
+def preprocess_text_fields(name: str = None, brand: str = None) -> dict:
+    """
+    Preprocess product text fields with context-specific rules.
+
+    Args:
+        name: Product name to preprocess (strips whitespace, preserves casing)
+        brand: Brand name to preprocess (strips whitespace, applies title case)
+
+    Returns:
+        Dictionary with preprocessed field values
+    """
+    result = {}
+
+    if name is not None:
+        # Product names: strip only (preserve brand casing like "iPhone", "iPad")
+        result['name'] = name.strip()
+
+    if brand is not None:
+        # Brands: strip + title case for consistency (e.g., "CHANEL" → "Chanel")
+        result['brand'] = brand.strip().title() if brand.strip() else None
+
+    return result
+
+
+# =========================================================================
 # Categories
 # =========================================================================
 
@@ -181,15 +209,32 @@ async def get_products(
         count_stmt = count_stmt.where(*conditions)
     total = (await session.execute(count_stmt)).scalar() or 0
 
-    # Sorting
+    # Get shop settings to check if out-of-stock products should be shown
+    from src.settings.models import ShopSettings
+    shop_settings = await session.get(ShopSettings, 1)
+    show_out_of_stock = shop_settings.show_out_of_stock if shop_settings else False
+
+    # Sorting (show in-stock products first only if show_out_of_stock is enabled)
     if sort == "price_asc":
-        base = base.order_by(Product.retail_price.asc(), Product.created_at.desc())
+        if show_out_of_stock:
+            base = base.order_by(Product.in_stock.desc(), Product.retail_price.asc(), Product.created_at.desc())
+        else:
+            base = base.order_by(Product.retail_price.asc(), Product.created_at.desc())
     elif sort == "price_desc":
-        base = base.order_by(Product.retail_price.desc(), Product.created_at.desc())
+        if show_out_of_stock:
+            base = base.order_by(Product.in_stock.desc(), Product.retail_price.desc(), Product.created_at.desc())
+        else:
+            base = base.order_by(Product.retail_price.desc(), Product.created_at.desc())
     elif sort == "name":
-        base = base.order_by(Product.name.asc(), Product.created_at.desc())
+        if show_out_of_stock:
+            base = base.order_by(Product.in_stock.desc(), Product.name.asc(), Product.created_at.desc())
+        else:
+            base = base.order_by(Product.name.asc(), Product.created_at.desc())
     else:
-        base = base.order_by(Product.created_at.desc())
+        if show_out_of_stock:
+            base = base.order_by(Product.in_stock.desc(), Product.created_at.desc())
+        else:
+            base = base.order_by(Product.created_at.desc())
 
     # Paginated results
     offset = (page - 1) * per_page
@@ -241,18 +286,21 @@ async def create_product(
     data: ProductCreate,
 ) -> Product:
     """Create a product together with its images and wholesale tiers."""
+    # Preprocess text fields
+    preprocessed = preprocess_text_fields(name=data.name, brand=data.brand)
+
     product = Product(
-        name=data.name,
-        slug=slugify(data.name),
+        name=preprocessed.get('name', data.name),
+        slug=slugify(preprocessed.get('name', data.name)),
         description=data.description,
         category_id=data.category_id,
-        brand=data.brand,
+        brand=preprocessed.get('brand', data.brand),
         volume_ml=data.volume_ml,
         retail_price=data.retail_price,
         discount_price=data.discount_price,
         discount_start=data.discount_start,
         discount_end=data.discount_end,
-        stock_quantity=data.stock_quantity,
+        in_stock=data.in_stock,
         is_active=data.is_active,
     )
 
@@ -308,6 +356,14 @@ async def update_product(
         return None
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Preprocess text fields if present
+    if 'name' in update_data or 'brand' in update_data:
+        preprocessed = preprocess_text_fields(
+            name=update_data.get('name'),
+            brand=update_data.get('brand')
+        )
+        update_data.update(preprocessed)
 
     # Handle images replacement
     new_images = update_data.pop("images", None)
@@ -389,8 +445,14 @@ async def get_featured_products(
     If no products have a discount, returns an empty list so the section is hidden.
     """
     from datetime import datetime
+    from src.settings.models import ShopSettings
 
     now = datetime.now()
+
+    # Get shop settings to check if out-of-stock products should be shown
+    shop_settings = await session.get(ShopSettings, 1)
+    show_out_of_stock = shop_settings.show_out_of_stock if shop_settings else False
+
     stmt = (
         select(Product)
         .options(
@@ -406,9 +468,15 @@ async def get_featured_products(
             or_(Product.discount_start.is_(None), Product.discount_start <= now),
             or_(Product.discount_end.is_(None), Product.discount_end >= now),
         )
-        .order_by(Product.created_at.desc())
-        .limit(limit)
     )
+
+    # Sort by in_stock first only if show_out_of_stock is enabled
+    if show_out_of_stock:
+        stmt = stmt.order_by(Product.in_stock.desc(), Product.created_at.desc())
+    else:
+        stmt = stmt.order_by(Product.created_at.desc())
+
+    stmt = stmt.limit(limit)
     result = await session.execute(stmt)
     return list(result.scalars().unique().all())
 

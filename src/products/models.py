@@ -37,7 +37,7 @@ class Product(Base):
     discount_start = Column(DateTime, nullable=True)
     discount_end = Column(DateTime, nullable=True)
 
-    stock_quantity = Column(Integer, default=0)
+    in_stock = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

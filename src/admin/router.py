@@ -74,16 +74,16 @@ async def admin_dashboard(
     ).scalar() or 0
     stats["active_products_count"] = active_count
 
-    # Low stock products (stock_quantity <= 5 and active)
-    low_stock = (
+    # Out of stock products (in_stock = False and active)
+    out_of_stock = (
         await session.execute(
             select(func.count(Product.id)).where(
                 Product.is_active.is_(True),
-                Product.stock_quantity <= 5,
+                Product.in_stock.is_(False),
             )
         )
     ).scalar() or 0
-    stats["low_stock_products"] = low_stock
+    stats["out_of_stock_products"] = out_of_stock
 
     return templates.TemplateResponse(
         "admin/dashboard.html",
@@ -106,21 +106,31 @@ async def admin_products_list(
     search: Optional[str] = Query(None),
     category_id: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: Optional[str] = Query("100"),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
+    # Handle per_page: "all" or numeric value
+    if per_page == "all":
+        items_per_page = 9999
+    else:
+        try:
+            items_per_page = int(per_page)
+            items_per_page = max(1, min(items_per_page, 9999))
+        except (ValueError, TypeError):
+            items_per_page = 100
+
     cat_id = int(category_id) if category_id else None
     products, total = await get_products(
         session,
         search=search,
         category_id=cat_id,
         page=page,
-        per_page=per_page,
+        per_page=items_per_page,
         active_only=False,
     )
     categories = await get_categories(session, active_only=False)
-    total_pages = math.ceil(total / per_page) if total else 1
+    total_pages = math.ceil(total / items_per_page) if total and items_per_page < 9999 else 1
 
     return templates.TemplateResponse(
         "admin/products/list.html",
@@ -132,6 +142,8 @@ async def admin_products_list(
             "search": search or "",
             "category_id": category_id or "",
             "page": page,
+            "per_page": items_per_page,
+            "total": total,
             "total_pages": total_pages,
             "active_page": "products",
         },
@@ -168,7 +180,7 @@ async def admin_product_create(
     discount_price: Optional[str] = Form(None),
     discount_start: Optional[str] = Form(None),
     discount_end: Optional[str] = Form(None),
-    stock_quantity: str = Form("0"),
+    in_stock: Optional[str] = Form(None),
     image_files: list[UploadFile] = File(default=[]),
     tier_quantities: Optional[str] = Form(None),
     tier_prices: Optional[str] = Form(None),
@@ -198,7 +210,7 @@ async def admin_product_create(
         discount_price=Decimal(discount_price) if discount_price and Decimal(discount_price) > 0 else None,
         discount_start=datetime.fromisoformat(discount_start) if discount_start else None,
         discount_end=datetime.fromisoformat(discount_end) if discount_end else None,
-        stock_quantity=int(stock_quantity),
+        in_stock=in_stock == "1",
         is_active=is_active == "1",
         images=[],
         wholesale_tiers=tiers,
@@ -265,7 +277,7 @@ async def admin_product_edit(
     discount_price: Optional[str] = Form(None),
     discount_start: Optional[str] = Form(None),
     discount_end: Optional[str] = Form(None),
-    stock_quantity: str = Form("0"),
+    in_stock: Optional[str] = Form(None),
     existing_image_urls: Optional[list[str]] = Form(None),
     image_files: list[UploadFile] = File(default=[]),
     tier_quantities: Optional[str] = Form(None),
@@ -331,7 +343,7 @@ async def admin_product_edit(
         discount_price=Decimal(discount_price) if discount_price and Decimal(discount_price) > 0 else None,
         discount_start=dt.fromisoformat(discount_start) if discount_start else None,
         discount_end=dt.fromisoformat(discount_end) if discount_end else None,
-        stock_quantity=int(stock_quantity),
+        in_stock=in_stock == "1",
         is_active=is_active == "1",
         images=images if images else None,
         wholesale_tiers=tiers if tiers else None,
@@ -404,7 +416,182 @@ async def admin_products_bulk_action(
         await session.commit()
         return RedirectResponse(f"/admin/products?success=Категорiю+змiнено+для+{len(product_ids)}+товарiв", status_code=302)
 
+    elif action == "set_in_stock":
+        stmt = select(Product).where(Product.id.in_(product_ids))
+        result = await session.execute(stmt)
+        for product in result.scalars().all():
+            product.in_stock = True
+        await session.commit()
+        return RedirectResponse(f"/admin/products?success=Встановлено+в+наявностi+для+{len(product_ids)}+товарiв", status_code=302)
+
+    elif action == "set_out_of_stock":
+        stmt = select(Product).where(Product.id.in_(product_ids))
+        result = await session.execute(stmt)
+        for product in result.scalars().all():
+            product.in_stock = False
+        await session.commit()
+        return RedirectResponse(f"/admin/products?success=Встановлено+немає+в+наявностi+для+{len(product_ids)}+товарiв", status_code=302)
+
     return RedirectResponse("/admin/products?error=Невiдома+дiя", status_code=302)
+
+
+@router.post("/products/{product_id}/inline-update")
+async def admin_product_inline_update(
+    product_id: int,
+    field: str = Form(...),
+    value: str = Form(...),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """Update a single product field inline via HTMX."""
+    from fastapi.responses import HTMLResponse
+    from src.products.service import get_product_by_id, preprocess_text_fields
+    from slugify import slugify
+
+    product = await get_product_by_id(session, product_id)
+    if not product:
+        return HTMLResponse("<span class='text-red-600'>Помилка: товар не знайдено</span>", status_code=404)
+
+    try:
+        # Update field based on type
+        if field == "in_stock":
+            product.in_stock = value.lower() in ("true", "1", "yes")
+        elif field == "is_active":
+            product.is_active = value.lower() in ("true", "1", "yes")
+        elif field == "retail_price":
+            product.retail_price = Decimal(value)
+        elif field == "discount_price":
+            if value and value.strip() and Decimal(value) > 0:
+                product.discount_price = Decimal(value)
+            else:
+                product.discount_price = None
+        elif field == "name":
+            # Apply preprocessing
+            preprocessed = preprocess_text_fields(name=value)
+            product.name = preprocessed['name']
+            product.slug = slugify(preprocessed['name'])
+        elif field == "brand":
+            # Apply preprocessing
+            preprocessed = preprocess_text_fields(brand=value)
+            product.brand = preprocessed.get('brand')
+        elif field == "volume_ml":
+            product.volume_ml = int(value) if value and value.strip() else None
+        elif field == "category_id":
+            product.category_id = int(value) if value and value.strip() else None
+        else:
+            return HTMLResponse("<span class='text-red-600'>Невідоме поле</span>", status_code=400)
+
+        await session.commit()
+        await session.refresh(product)
+
+        # Return HTML fragment for HTMX to swap
+        if field == "in_stock":
+            if product.in_stock:
+                return HTMLResponse("""
+                    <button hx-post="/admin/products/{}/inline-update"
+                            hx-vals='{{"field": "in_stock", "value": "false"}}'
+                            hx-swap="outerHTML"
+                            class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition bg-green-50 text-green-700 hover:bg-green-100">
+                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        В наявності
+                    </button>
+                """.format(product_id))
+            else:
+                return HTMLResponse("""
+                    <button hx-post="/admin/products/{}/inline-update"
+                            hx-vals='{{"field": "in_stock", "value": "true"}}'
+                            hx-swap="outerHTML"
+                            class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition bg-red-50 text-red-600 hover:bg-red-100">
+                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                        Немає в наявності
+                    </button>
+                """.format(product_id))
+        elif field == "is_active":
+            if product.is_active:
+                return HTMLResponse("""
+                    <button hx-post="/admin/products/{}/inline-update"
+                            hx-vals='{{"field": "is_active", "value": "false"}}'
+                            hx-swap="outerHTML"
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition cursor-pointer">
+                        Активний
+                    </button>
+                """.format(product_id))
+            else:
+                return HTMLResponse("""
+                    <button hx-post="/admin/products/{}/inline-update"
+                            hx-vals='{{"field": "is_active", "value": "true"}}'
+                            hx-swap="outerHTML"
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition cursor-pointer">
+                        Неактивний
+                    </button>
+                """.format(product_id))
+        elif field == "name":
+            volume_html = f'<p class="text-xs text-gray-400">{product.volume_ml} мл</p>' if product.volume_ml else ''
+            return HTMLResponse(f"""
+                <div class="editable-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition" data-field="name" data-value="{product.name}" data-product-id="{product_id}">
+                    <p class="font-medium text-gray-900">{product.name}</p>
+                    {volume_html}
+                </div>
+            """)
+        elif field == "volume_ml":
+            volume_html = f'<p class="text-xs text-gray-400">{product.volume_ml} мл</p>' if product.volume_ml else ''
+            return HTMLResponse(f"""
+                <div class="editable-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition" data-field="name" data-value="{product.name}" data-product-id="{product_id}">
+                    <p class="font-medium text-gray-900">{product.name}</p>
+                    {volume_html}
+                </div>
+            """)
+        elif field == "brand":
+            return HTMLResponse(f"""
+                <span class="editable-cell text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition inline-block" data-field="brand" data-value="{product.brand or ''}" data-product-id="{product_id}">
+                    {product.brand or '---'}
+                </span>
+            """)
+        elif field == "category_id":
+            category_name = product.category.name if product.category else '---'
+            return HTMLResponse(f"""
+                <span class="text-gray-600">
+                    {category_name}
+                </span>
+            """)
+        elif field == "retail_price":
+            return HTMLResponse(f"""
+                <span class="editable-cell font-medium text-gray-900 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition inline-block" data-field="retail_price" data-value="{product.retail_price}" data-product-id="{product_id}">
+                    {product.retail_price} грн
+                </span>
+            """)
+        elif field == "discount_price":
+            if product.discount_price:
+                discount_html = f'<span class="text-red-600 font-medium">{product.discount_price} грн</span>'
+                if product.discount_end:
+                    discount_html += f'<p class="text-xs text-gray-400">до {product.discount_end.strftime("%d.%m.%Y")}</p>'
+            else:
+                discount_html = '<span class="text-gray-400">---</span>'
+
+            return HTMLResponse(f"""
+                <div class="editable-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition" data-field="discount_price" data-value="{product.discount_price or ''}" data-product-id="{product_id}">
+                    {discount_html}
+                </div>
+            """)
+        else:
+            # For other fields, just return success message
+            return HTMLResponse("<span class='text-green-600'>Оновлено</span>")
+
+    except Exception as e:
+        return HTMLResponse(f"<span class='text-red-600'>Помилка: {str(e)}</span>", status_code=400)
+
+
+@router.get("/api/brands")
+async def admin_brands_list(
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """Get list of all brands for autocomplete."""
+    from fastapi.responses import JSONResponse
+    from src.products.service import get_brands
+
+    brands = await get_brands(session)
+    return JSONResponse(content=brands)
 
 
 # =========================================================================
@@ -414,9 +601,21 @@ async def admin_products_bulk_action(
 @router.get("/categories", response_class=HTMLResponse)
 async def admin_categories_list(
     request: Request,
+    page: int = Query(1, ge=1),
+    per_page: Optional[str] = Query("100"),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
+    # Handle per_page: "all" or numeric value
+    if per_page == "all":
+        items_per_page = 9999
+    else:
+        try:
+            items_per_page = int(per_page)
+            items_per_page = max(1, min(items_per_page, 9999))
+        except (ValueError, TypeError):
+            items_per_page = 100
+
     # Get all categories (including non-root) for admin
     from sqlalchemy.orm import selectinload
 
@@ -426,7 +625,13 @@ async def admin_categories_list(
         .order_by(Category.sort_order, Category.name)
     )
     result = await session.execute(stmt)
-    categories = list(result.scalars().all())
+    all_categories = list(result.scalars().all())
+
+    # Apply pagination
+    total = len(all_categories)
+    offset = (page - 1) * items_per_page
+    categories = all_categories[offset:offset + items_per_page]
+    total_pages = math.ceil(total / items_per_page) if total and items_per_page < 9999 else 1
 
     return templates.TemplateResponse(
         "admin/categories/list.html",
@@ -434,6 +639,10 @@ async def admin_categories_list(
             "request": request,
             "user": user,
             "categories": categories,
+            "page": page,
+            "per_page": items_per_page,
+            "total": total,
+            "total_pages": total_pages,
             "active_page": "categories",
         },
     )
@@ -592,11 +801,21 @@ async def admin_orders_list(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: Optional[str] = Query("100"),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     from itertools import groupby
+
+    # Handle per_page: "all" or numeric value
+    if per_page == "all":
+        items_per_page = 9999
+    else:
+        try:
+            items_per_page = int(per_page)
+            items_per_page = max(1, min(items_per_page, 9999))
+        except (ValueError, TypeError):
+            items_per_page = 100
 
     # Warehouse staff sees only paid orders
     effective_status = status
@@ -608,9 +827,9 @@ async def admin_orders_list(
         status=effective_status,
         search=search,
         page=page,
-        per_page=per_page,
+        per_page=items_per_page,
     )
-    total_pages = math.ceil(total / per_page) if total else 1
+    total_pages = math.ceil(total / items_per_page) if total and items_per_page < 9999 else 1
 
     # Group orders by calendar day
     grouped_orders = []
@@ -639,6 +858,7 @@ async def admin_orders_list(
             "search": search or "",
             "status": status or "",
             "page": page,
+            "per_page": items_per_page,
             "total_pages": total_pages,
             "total": total,
             "statuses": OrderStatus,
@@ -912,12 +1132,22 @@ async def admin_order_custom_total(
 async def admin_coupons_list(
     request: Request,
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: Optional[str] = Query("100"),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
-    coupons, total = await get_all_coupons(session, page=page, per_page=per_page)
-    total_pages = math.ceil(total / per_page) if total else 1
+    # Handle per_page: "all" or numeric value
+    if per_page == "all":
+        items_per_page = 9999
+    else:
+        try:
+            items_per_page = int(per_page)
+            items_per_page = max(1, min(items_per_page, 9999))
+        except (ValueError, TypeError):
+            items_per_page = 100
+
+    coupons, total = await get_all_coupons(session, page=page, per_page=items_per_page)
+    total_pages = math.ceil(total / items_per_page) if total and items_per_page < 9999 else 1
 
     return templates.TemplateResponse(
         "admin/coupons/list.html",
@@ -926,6 +1156,8 @@ async def admin_coupons_list(
             "user": user,
             "coupons": coupons,
             "page": page,
+            "per_page": items_per_page,
+            "total": total,
             "total_pages": total_pages,
             "active_page": "coupons",
         },

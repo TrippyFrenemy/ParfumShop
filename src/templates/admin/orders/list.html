@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% from "admin/partials/pagination.html" import render_pagination %}
 
 {% block title %}Замовлення{% endblock %}
 {% block page_title %}Замовлення{% endblock %}
@@ -137,28 +138,18 @@
 </div>
 
 <!-- Pagination -->
-{% if total_pages is defined and total_pages > 1 %}
-<div class="flex items-center justify-center gap-1 mt-6">
-    {% if page is defined and page > 1 %}
-    <a href="?page={{ page - 1 }}{% if status %}&status={{ status }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
-       class="px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-        &laquo; Назад
-    </a>
-    {% endif %}
-
-    {% for p in range(1, total_pages + 1) %}
-    <a href="?page={{ p }}{% if status %}&status={{ status }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
-       class="px-3 py-2 text-sm rounded-lg transition {% if page is defined and page == p %}bg-brand-600 text-white{% else %}text-gray-600 bg-white border border-gray-200 hover:bg-gray-50{% endif %}">
-        {{ p }}
-    </a>
-    {% endfor %}
-
-    {% if page is defined and page < total_pages %}
-    <a href="?page={{ page + 1 }}{% if status %}&status={{ status }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
-       class="px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-        Далi &raquo;
-    </a>
-    {% endif %}
-</div>
-{% endif %}
+{{ render_pagination(
+    page=page if page is defined else 1,
+    total_pages=total_pages if total_pages is defined else 1,
+    per_page=per_page if per_page is defined else 100,
+    total_items=total if total is defined else 0,
+    base_url='',
+    query_params={
+        'status': status if status else '',
+        'date_from': date_from if date_from else '',
+        'date_to': date_to if date_to else '',
+        'search': search if search else '',
+        'per_page': per_page if per_page is defined else 100
+    }
+) }}
 {% endblock %}

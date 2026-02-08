@@ -146,8 +146,7 @@ async def refresh_token(request: Request):
         await redis.set(f"refresh_token:{user_id}", new_refresh)
 
         response = JSONResponse(content={"message": "Token refreshed"})
-        response.set_cookie("Authorization", f"Bearer {new_access}", httponly=True, samesite="Lax", max_age=1800) #, secure=True)
-        response.set_cookie("refresh_token", new_refresh, httponly=True, samesite="Lax", max_age=604800) #, secure=True)
+        response = set_auth_cookies(response, new_access, new_refresh)
         return response
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -173,7 +172,7 @@ async def google_start():
         key="oauth_state",
         value=state,
         httponly=True,
-        # secure=True,
+        secure=True,
         samesite="Lax",
         max_age=600,
         path="/",

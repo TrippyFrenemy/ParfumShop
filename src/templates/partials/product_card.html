@@ -13,7 +13,7 @@
                 -{{ ((1 - product.discount_price / product.retail_price) * 100) | int }}%
             </div>
             {% endif %}
-            {% if settings and settings.show_out_of_stock and product.stock_quantity <= 0 %}
+            {% if settings and settings.show_out_of_stock and not product.in_stock %}
             <div class="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <span class="bg-white/90 text-gray-800 text-xs font-bold px-3 py-1.5 rounded-lg">Немає в наявностi</span>
             </div>

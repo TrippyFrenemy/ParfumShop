@@ -177,7 +177,9 @@ def cart_to_dict(cart: Optional[Cart]) -> dict:
         return {"items": [], "total_items": 0, "total_price": "0.00"}
 
     items = []
-    for item in cart.items:
+    # Sort items by ID to ensure consistent ordering
+    sorted_items = sorted(cart.items, key=lambda x: x.id)
+    for item in sorted_items:
         product = item.product
         price_per_unit = product.get_price_for_quantity(item.quantity) if product else Decimal("0")
         line_total = price_per_unit * item.quantity if product else Decimal("0")
@@ -186,6 +188,9 @@ def cart_to_dict(cart: Optional[Cart]) -> dict:
             "id": item.id,
             "product_id": item.product_id,
             "product_name": product.name if product else "",
+            "product_slug": product.slug if product else "",
+            "product_brand": product.brand if product else "",
+            "product_volume_ml": product.volume_ml if product else None,
             "product_image": product.main_image if product else None,
             "price_per_unit": str(price_per_unit),
             "quantity": item.quantity,

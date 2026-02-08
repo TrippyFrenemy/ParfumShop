@@ -57,7 +57,7 @@ async def notify_new_order(order) -> None:
     base = (settings.URL or "").rstrip("/")
     admin_url = f"{base}/admin/orders/{order.id}"
     lines.append("")
-    lines.append(f'🔗 <a href="{html.escape(admin_url, quote=True)}">Переглянути в адмін-панелі    {admin_url}    </a>')
+    lines.append(f'🔗 <a href="{html.escape(admin_url, quote=True)}">Переглянути в адмін-панелі</a>')
 
     text = "\n".join(lines)
 
