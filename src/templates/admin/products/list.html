@@ -449,5 +449,93 @@ function cancelEdit() {
     cell.innerHTML = originalHTML;
     currentlyEditing = null;
 }
+
+// WebSocket connection for real-time product updates
+(function() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/admin/ws/products`;
+    let ws = null;
+    let reconnectInterval = null;
+
+    function connectWebSocket() {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = function() {
+            console.log('Products WebSocket connected');
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        };
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'product_update') {
+                const productId = data.product_id;
+                const field = data.field;
+                const html = data.html;
+
+                // Find the cell to update based on field
+                let targetCell = null;
+
+                if (field === 'in_stock') {
+                    // Find the stock status cell
+                    targetCell = document.querySelector(`[hx-vals*='"product_id": ${productId}'][hx-vals*='"field": "in_stock"']`)?.closest('td');
+                    if (!targetCell) {
+                        // Alternative: find by button with product ID
+                        const buttons = document.querySelectorAll('button[hx-post*="/inline-update"]');
+                        for (const btn of buttons) {
+                            if (btn.outerHTML.includes(`/products/${productId}/inline-update`) &&
+                                btn.outerHTML.includes('in_stock')) {
+                                targetCell = btn.closest('td');
+                                break;
+                            }
+                        }
+                    }
+                } else if (field === 'is_active') {
+                    // Find the active status cell
+                    targetCell = document.querySelector(`[hx-vals*='"product_id": ${productId}'][hx-vals*='"field": "is_active"']`)?.closest('td');
+                    if (!targetCell) {
+                        const buttons = document.querySelectorAll('button[hx-post*="/inline-update"]');
+                        for (const btn of buttons) {
+                            if (btn.outerHTML.includes(`/products/${productId}/inline-update`) &&
+                                btn.outerHTML.includes('is_active')) {
+                                targetCell = btn.closest('td');
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // For editable cells (name, brand, price, etc.)
+                    targetCell = document.querySelector(`.editable-cell[data-product-id="${productId}"][data-field="${field}"]`)?.closest('td');
+                }
+
+                if (targetCell && !currentlyEditing) {
+                    // Update the cell content
+                    targetCell.innerHTML = html;
+
+                    // Flash animation to indicate update
+                    targetCell.classList.add('bg-yellow-50');
+                    setTimeout(() => targetCell.classList.remove('bg-yellow-50'), 1000);
+                }
+            }
+        };
+
+        ws.onclose = function() {
+            console.log('Products WebSocket disconnected, reconnecting...');
+            if (!reconnectInterval) {
+                reconnectInterval = setInterval(connectWebSocket, 3000);
+            }
+        };
+
+        ws.onerror = function(error) {
+            console.error('Products WebSocket error:', error);
+            ws.close();
+        };
+    }
+
+    // Connect WebSocket on page load
+    connectWebSocket();
+})();
 </script>
 {% endblock %}

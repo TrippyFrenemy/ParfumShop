@@ -38,17 +38,42 @@ from src.users.models import User
 router = APIRouter()
 
 
+def parse_filters(
+    period: PeriodType = Query(PeriodType.MONTH),
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    category_id: Optional[str] = None,
+    brand: Optional[str] = None,
+    compare_previous: bool = False,
+) -> ReportFilters:
+    """Parse and validate report filters from query parameters."""
+    # Convert empty strings to None for category_id
+    parsed_category_id = None
+    if category_id and category_id.strip():
+        try:
+            parsed_category_id = int(category_id)
+        except ValueError:
+            parsed_category_id = None
+
+    # Convert empty strings to None for brand
+    parsed_brand = brand if brand and brand.strip() else None
+
+    return ReportFilters(
+        period=period,
+        date_from=date_from,
+        date_to=date_to,
+        category_id=parsed_category_id,
+        brand=parsed_brand,
+        compare_previous=compare_previous
+    )
+
+
 @router.get("/reports", response_class=HTMLResponse)
 async def reports_overview(
     request: Request,
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    category_id: Optional[int] = None,
-    brand: Optional[str] = None,
-    compare_previous: bool = False,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """Main reports page with tabs."""
     # Get categories for filter
@@ -64,16 +89,6 @@ async def reports_overview(
     ).order_by(Product.brand)
     brands_result = await session.execute(brands_stmt)
     brands = [brand for brand in brands_result.scalars().all() if brand]
-
-    # Build filters
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-        category_id=category_id,
-        brand=brand,
-        compare_previous=compare_previous
-    )
 
     # Get overview statistics
     stats = await get_overview_stats(session, filters)
@@ -95,17 +110,9 @@ async def reports_overview(
 async def chart_sales_trend(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for sales trend chart data."""
-    # Build filters
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
 
     start_date, end_date = calculate_date_range(filters)
 
@@ -177,17 +184,9 @@ async def chart_sales_trend(
 async def chart_top_products(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for top products bar chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get top products data
@@ -225,17 +224,9 @@ async def chart_top_products(
 async def chart_categories_distribution(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for categories distribution pie chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get revenue by category
@@ -273,17 +264,9 @@ async def chart_categories_distribution(
 async def chart_orders_by_status(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for orders by status doughnut chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get orders by status
@@ -318,17 +301,9 @@ async def chart_orders_by_status(
 async def chart_revenue_by_weekday(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for revenue by weekday bar chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get revenue by weekday
@@ -371,17 +346,9 @@ async def chart_revenue_by_weekday(
 async def api_sales_report(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for sales report data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     sales_data = await get_sales_report(session, filters)
 
     return JSONResponse(content=sales_data)
@@ -391,17 +358,9 @@ async def api_sales_report(
 async def chart_revenue_by_brand(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for revenue by brand pie chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get revenue by brand
@@ -442,17 +401,9 @@ async def chart_revenue_by_brand(
 async def chart_top_products_by_quantity(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for top products by quantity bar chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get top products by quantity
@@ -495,17 +446,9 @@ async def chart_top_products_by_quantity(
 async def api_products_report(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for products report data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     products_data = await get_products_report(session, filters)
 
     return JSONResponse(content=products_data)
@@ -515,17 +458,9 @@ async def api_products_report(
 async def chart_aov_trend(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for AOV trend chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get AOV trend data
@@ -559,17 +494,9 @@ async def chart_aov_trend(
 async def chart_orders_by_city(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for orders by city bar chart data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     start_date, end_date = calculate_date_range(filters)
 
     # Get orders by city
@@ -612,17 +539,9 @@ async def chart_orders_by_city(
 async def api_orders_report(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for orders report data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     orders_data = await get_orders_report(session, filters)
 
     return JSONResponse(content=orders_data)
@@ -632,17 +551,9 @@ async def api_orders_report(
 async def api_customers_report(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for customers report data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     customers_data = await get_customers_report(session, filters)
 
     return JSONResponse(content=customers_data)
@@ -652,17 +563,9 @@ async def api_customers_report(
 async def api_financial_report(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for financial report data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     financial_data = await get_financial_report(session, filters)
 
     return JSONResponse(content=financial_data)
@@ -672,17 +575,9 @@ async def api_financial_report(
 async def api_delivery_report(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
-    period: PeriodType = Query(PeriodType.MONTH),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    filters: ReportFilters = Depends(parse_filters),
 ):
     """API endpoint for delivery report data."""
-    filters = ReportFilters(
-        period=period,
-        date_from=date_from,
-        date_to=date_to,
-    )
-
     delivery_data = await get_delivery_report(session, filters)
 
     return JSONResponse(content=delivery_data)

@@ -105,6 +105,8 @@ async def admin_products_list(
     request: Request,
     search: Optional[str] = Query(None),
     category_id: Optional[str] = Query(None),
+    is_active: Optional[str] = Query(None),
+    in_stock: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     per_page: Optional[str] = Query("all"),
     session: AsyncSession = Depends(get_async_session),
@@ -121,6 +123,16 @@ async def admin_products_list(
             items_per_page = 100
 
     cat_id = int(category_id) if category_id else None
+
+    # Parse filter parameters
+    is_active_filter = None
+    if is_active is not None and is_active.lower() in ['true', 'false']:
+        is_active_filter = is_active.lower() == 'true'
+
+    in_stock_filter = None
+    if in_stock is not None and in_stock.lower() in ['true', 'false']:
+        in_stock_filter = in_stock.lower() == 'true'
+
     products, total = await get_products(
         session,
         search=search,
@@ -128,6 +140,8 @@ async def admin_products_list(
         page=page,
         per_page=items_per_page,
         active_only=False,
+        is_active_filter=is_active_filter,
+        in_stock_filter=in_stock_filter,
     )
     categories = await get_categories(session, active_only=False)
     total_pages = math.ceil(total / items_per_page) if total and items_per_page < 9999 else 1
@@ -141,6 +155,8 @@ async def admin_products_list(
             "categories": categories,
             "search": search or "",
             "category_id": category_id or "",
+            "is_active": is_active or "",
+            "in_stock": in_stock or "",
             "page": page,
             "per_page": items_per_page,
             "total": total,
@@ -435,6 +451,20 @@ async def admin_products_bulk_action(
     return RedirectResponse("/admin/products?error=Невiдома+дiя", status_code=302)
 
 
+@router.websocket("/ws/products")
+async def products_websocket(websocket: WebSocket):
+    """WebSocket endpoint for real-time product updates."""
+    from src.products.websocket import ws_manager
+
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive, wait for messages
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+
+
 @router.post("/products/{product_id}/inline-update")
 async def admin_product_inline_update(
     product_id: int,
@@ -443,9 +473,10 @@ async def admin_product_inline_update(
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_manager_or_admin),
 ):
-    """Update a single product field inline via HTMX."""
+    """Update a single product field inline via HTMX and broadcast to all clients."""
     from fastapi.responses import HTMLResponse
     from src.products.service import get_product_by_id, preprocess_text_fields
+    from src.products.websocket import ws_manager
     from slugify import slugify
 
     product = await get_product_by_id(session, product_id)
@@ -484,10 +515,11 @@ async def admin_product_inline_update(
         await session.commit()
         await session.refresh(product)
 
-        # Return HTML fragment for HTMX to swap
+        # Generate HTML fragment for HTMX to swap
+        response_html = None
         if field == "in_stock":
             if product.in_stock:
-                return HTMLResponse("""
+                response_html = """
                     <button hx-post="/admin/products/{}/inline-update"
                             hx-vals='{{"field": "in_stock", "value": "false"}}'
                             hx-swap="outerHTML"
@@ -495,9 +527,9 @@ async def admin_product_inline_update(
                         <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                         В наявності
                     </button>
-                """.format(product_id))
+                """.format(product_id)
             else:
-                return HTMLResponse("""
+                response_html = """
                     <button hx-post="/admin/products/{}/inline-update"
                             hx-vals='{{"field": "in_stock", "value": "true"}}'
                             hx-swap="outerHTML"
@@ -505,61 +537,61 @@ async def admin_product_inline_update(
                         <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
                         Немає в наявності
                     </button>
-                """.format(product_id))
+                """.format(product_id)
         elif field == "is_active":
             if product.is_active:
-                return HTMLResponse("""
+                response_html = """
                     <button hx-post="/admin/products/{}/inline-update"
                             hx-vals='{{"field": "is_active", "value": "false"}}'
                             hx-swap="outerHTML"
                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition cursor-pointer">
                         Активний
                     </button>
-                """.format(product_id))
+                """.format(product_id)
             else:
-                return HTMLResponse("""
+                response_html = """
                     <button hx-post="/admin/products/{}/inline-update"
                             hx-vals='{{"field": "is_active", "value": "true"}}'
                             hx-swap="outerHTML"
                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition cursor-pointer">
                         Неактивний
                     </button>
-                """.format(product_id))
+                """.format(product_id)
         elif field == "name":
             volume_html = f'<p class="text-xs text-gray-400">{product.volume_ml} мл</p>' if product.volume_ml else ''
-            return HTMLResponse(f"""
+            response_html = f"""
                 <div class="editable-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition" data-field="name" data-value="{product.name}" data-product-id="{product_id}">
                     <p class="font-medium text-gray-900">{product.name}</p>
                     {volume_html}
                 </div>
-            """)
+            """
         elif field == "volume_ml":
             volume_html = f'<p class="text-xs text-gray-400">{product.volume_ml} мл</p>' if product.volume_ml else ''
-            return HTMLResponse(f"""
+            response_html = f"""
                 <div class="editable-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition" data-field="name" data-value="{product.name}" data-product-id="{product_id}">
                     <p class="font-medium text-gray-900">{product.name}</p>
                     {volume_html}
                 </div>
-            """)
+            """
         elif field == "brand":
-            return HTMLResponse(f"""
+            response_html = f"""
                 <span class="editable-cell text-gray-600 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition inline-block" data-field="brand" data-value="{product.brand or ''}" data-product-id="{product_id}">
                     {product.brand or '---'}
                 </span>
-            """)
+            """
         elif field == "category_id":
             category_name = product.category.name if product.category else '---'
-            return HTMLResponse(f"""
+            response_html = f"""
                 <span class="text-gray-600">
                     {category_name}
                 </span>
-            """)
+            """
         elif field == "retail_price":
-            return HTMLResponse(f"""
+            response_html = f"""
                 <span class="editable-cell font-medium text-gray-900 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition inline-block" data-field="retail_price" data-value="{product.retail_price}" data-product-id="{product_id}">
                     {product.retail_price} грн
                 </span>
-            """)
+            """
         elif field == "discount_price":
             if product.discount_price:
                 discount_html = f'<span class="text-red-600 font-medium">{product.discount_price} грн</span>'
@@ -568,14 +600,20 @@ async def admin_product_inline_update(
             else:
                 discount_html = '<span class="text-gray-400">---</span>'
 
-            return HTMLResponse(f"""
+            response_html = f"""
                 <div class="editable-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition" data-field="discount_price" data-value="{product.discount_price or ''}" data-product-id="{product_id}">
                     {discount_html}
                 </div>
-            """)
+            """
         else:
             # For other fields, just return success message
-            return HTMLResponse("<span class='text-green-600'>Оновлено</span>")
+            response_html = "<span class='text-green-600'>Оновлено</span>"
+
+        # Broadcast to all connected WebSocket clients
+        await ws_manager.broadcast_product_update(product_id, field, response_html)
+
+        # Return HTML fragment for HTMX to swap
+        return HTMLResponse(response_html)
 
     except Exception as e:
         return HTMLResponse(f"<span class='text-red-600'>Помилка: {str(e)}</span>", status_code=400)
@@ -800,12 +838,14 @@ async def admin_orders_list(
     request: Request,
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    date_filter: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     per_page: Optional[str] = Query("100"),
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_warehouse_or_manager_or_admin),
 ):
     from itertools import groupby
+    from datetime import date
 
     # Handle per_page: "all" or numeric value
     if per_page == "all":
@@ -822,10 +862,19 @@ async def admin_orders_list(
     if user.role.value == "warehouse" and not status:
         effective_status = OrderStatus.PAID.value
 
+    # Parse date filter
+    date_from = None
+    date_to = None
+    if date_filter == "today":
+        date_from = date.today()
+        date_to = date.today()
+
     orders, total = await get_all_orders(
         session,
         status=effective_status,
         search=search,
+        date_from=date_from,
+        date_to=date_to,
         page=page,
         per_page=items_per_page,
     )
@@ -857,6 +906,7 @@ async def admin_orders_list(
             "grouped_orders": grouped_orders,
             "search": search or "",
             "status": status or "",
+            "date_filter": date_filter or "",
             "page": page,
             "per_page": items_per_page,
             "total_pages": total_pages,
@@ -879,6 +929,88 @@ async def admin_order_update_status(
     return RedirectResponse(f"/admin/orders?success=Статус+оновлено", status_code=302)
 
 
+@router.post("/orders/{order_id}/inline-status-update")
+async def admin_order_inline_status_update(
+    order_id: int,
+    status: str = Form(...),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
+):
+    """Update order status inline via HTMX and broadcast to all clients."""
+    from fastapi.responses import HTMLResponse
+    from src.orders.websocket import ws_manager
+
+    # Update the order status
+    await update_order_status(session, order_id, OrderStatus(status))
+    await _mark_order_modified(session, order_id, user)
+
+    # Fetch the updated order
+    order = await session.get(Order, order_id)
+    if not order:
+        return HTMLResponse("<span class='text-red-600'>Помилка: замовлення не знайдено</span>", status_code=404)
+
+    # Generate HTML fragment for the status badge
+    status_html = _render_status_badge(order)
+
+    # Broadcast to all connected WebSocket clients
+    await ws_manager.broadcast_order_update(order_id, status_html, field="status")
+
+    # Return HTML fragment for HTMX to swap
+    return HTMLResponse(status_html)
+
+
+def _render_status_badge(order: Order) -> str:
+    """Render the status badge HTML for an order."""
+    status_colors = {
+        'created': ('yellow', 'Нове замовлення'),
+        'paid': ('blue', 'Оплачено'),
+        'processing': ('purple', 'В обробці'),
+        'shipped': ('green', 'Відправлено'),
+    }
+
+    color, label = status_colors.get(order.status.value, ('gray', order.status_ua))
+
+    # Generate dropdown options
+    all_statuses = [
+        ('created', 'Нове замовлення'),
+        ('paid', 'Оплачено'),
+        ('processing', 'В обробці'),
+        ('shipped', 'Відправлено'),
+    ]
+
+    options_html = ''.join([
+        f'<button type="button" class="status-option w-full text-left px-4 py-2 hover:bg-gray-100 text-sm" data-value="{status_val}">{status_label}</button>'
+        for status_val, status_label in all_statuses
+        if status_val != order.status.value
+    ])
+
+    return f"""
+    <div class="status-dropdown inline-block relative" data-order-id="{order.id}">
+        <button type="button" class="status-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{color}-50 text-{color}-700 hover:bg-{color}-100 transition cursor-pointer">
+            {label}
+            <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="status-menu hidden absolute z-10 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[150px]">
+            {options_html}
+        </div>
+    </div>
+    """
+
+
+@router.websocket("/ws/orders")
+async def orders_websocket(websocket: WebSocket):
+    """WebSocket endpoint for real-time order updates."""
+    from src.orders.websocket import ws_manager
+
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive, wait for messages
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+
+
 @router.post("/orders/{order_id}/ttn")
 async def admin_order_set_ttn(
     order_id: int,
@@ -889,6 +1021,50 @@ async def admin_order_set_ttn(
     await update_order_ttn(session, order_id, ttn)
     await _mark_order_modified(session, order_id, user)
     return RedirectResponse(f"/admin/orders?success=ТТН+встановлено", status_code=302)
+
+
+@router.post("/orders/{order_id}/inline-ttn-update")
+async def admin_order_inline_ttn_update(
+    order_id: int,
+    ttn: str = Form(...),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_warehouse_or_manager_or_admin),
+):
+    """Update order TTN inline and broadcast to all clients."""
+    from fastapi.responses import HTMLResponse
+    from src.orders.websocket import ws_manager
+
+    # Update the TTN
+    await update_order_ttn(session, order_id, ttn.strip() if ttn else None)
+    await _mark_order_modified(session, order_id, user)
+
+    # Fetch the updated order
+    order = await session.get(Order, order_id)
+    if not order:
+        return HTMLResponse("<span class='text-red-600'>Помилка</span>", status_code=404)
+
+    # Generate HTML fragment for the TTN field
+    ttn_html = _render_ttn_field(order)
+
+    # Broadcast to all connected WebSocket clients with TTN update
+    await ws_manager.broadcast_order_update(order_id, ttn_html, field="ttn")
+
+    return HTMLResponse(ttn_html)
+
+
+def _render_ttn_field(order: Order) -> str:
+    """Render the TTN field HTML for an order."""
+    ttn_value = order.ttn or ""
+    display_value = order.ttn if order.ttn else "---"
+
+    return f"""
+    <span class="ttn-field inline-block group relative cursor-pointer" data-order-id="{order.id}" data-ttn="{ttn_value}">
+        <span class="font-mono text-xs text-gray-600 hover:bg-gray-100 px-2 py-1 rounded transition">{display_value}</span>
+        <svg class="w-3 h-3 inline-block ml-1 text-gray-400 opacity-0 group-hover:opacity-100 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+        </svg>
+    </span>
+    """
 
 
 @router.get("/orders/{order_id}", response_class=HTMLResponse)

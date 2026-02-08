@@ -96,11 +96,13 @@ async def get_top_products(
     stmt = (
         select(
             OrderItem.product_name,
-            OrderItem.product_brand,
+            Product.brand.label('product_brand'),
             func.sum(OrderItem.total).label('revenue'),
             func.sum(OrderItem.quantity).label('quantity')
         )
-        .join(Order, OrderItem.order_id == Order.id)
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
+        .outerjoin(Product, Product.id == OrderItem.product_id)
         .where(
             and_(
                 Order.created_at >= start_dt,
@@ -108,7 +110,7 @@ async def get_top_products(
                 Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
             )
         )
-        .group_by(OrderItem.product_name, OrderItem.product_brand)
+        .group_by(OrderItem.product_name, Product.brand)
     )
 
     if order_by == 'quantity':
@@ -156,9 +158,10 @@ async def get_revenue_by_category(
             Category.name.label('category_name'),
             func.sum(OrderItem.total).label('revenue')
         )
-        .join(OrderItem, Product.id == OrderItem.product_id)
-        .join(Order, OrderItem.order_id == Order.id)
-        .join(Category, Product.category_id == Category.id)
+        .select_from(OrderItem)
+        .join(Product, Product.id == OrderItem.product_id)
+        .join(Category, Category.id == Product.category_id)
+        .join(Order, Order.id == OrderItem.order_id)
         .where(
             and_(
                 Order.created_at >= start_dt,
@@ -326,7 +329,7 @@ async def get_discount_analysis(
             func.sum(Order.total).label('total_revenue'),
             func.count(Order.id).label('total_orders'),
             func.count(Order.id).filter(Order.discount_amount > 0).label('orders_with_discount'),
-            func.count(Order.id).filter(Order.coupon_code.isnot(None)).label('orders_with_coupon')
+            func.count(Order.id).filter(Order.coupon_id.isnot(None)).label('orders_with_coupon')
         )
         .where(
             and_(
@@ -401,7 +404,7 @@ async def get_dead_stock(
             Product.id,
             Product.name,
             Product.brand,
-            Product.price,
+            Product.retail_price,
             Product.in_stock,
             last_sale_subq.c.last_sale_date
         )
@@ -426,7 +429,7 @@ async def get_dead_stock(
             'product_id': row.id,
             'product_name': row.name,
             'brand': row.brand or 'Без бренду',
-            'price': float(row.price),
+            'price': float(row.retail_price),
             'in_stock': row.in_stock,
             'last_sale_date': row.last_sale_date.strftime('%Y-%m-%d') if row.last_sale_date else 'Ніколи',
             'days_since_sale': (current_time - row.last_sale_date).days if row.last_sale_date else 999
@@ -456,10 +459,12 @@ async def get_revenue_by_brand(
 
     stmt = (
         select(
-            func.coalesce(OrderItem.product_brand, 'Без бренду').label('brand'),
+            func.coalesce(Product.brand, 'Без бренду').label('brand'),
             func.sum(OrderItem.total).label('revenue')
         )
-        .join(Order, OrderItem.order_id == Order.id)
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
+        .outerjoin(Product, Product.id == OrderItem.product_id)
         .where(
             and_(
                 Order.created_at >= start_dt,
@@ -467,7 +472,7 @@ async def get_revenue_by_brand(
                 Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
             )
         )
-        .group_by('brand')
+        .group_by(Product.brand)
         .order_by(func.sum(OrderItem.total).desc())
         .limit(10)
     )
@@ -662,8 +667,7 @@ async def get_top_customers(
     stmt = (
         select(
             Order.phone,
-            Order.first_name,
-            Order.last_name,
+            Order.full_name,
             func.count(Order.id).label('orders_count'),
             func.sum(Order.total).label('revenue')
         )
@@ -675,7 +679,7 @@ async def get_top_customers(
                 Order.phone.isnot(None)
             )
         )
-        .group_by(Order.phone, Order.first_name, Order.last_name)
+        .group_by(Order.phone, Order.full_name)
         .order_by(func.sum(Order.total).desc())
         .limit(limit)
     )
@@ -686,7 +690,7 @@ async def get_top_customers(
     return [
         {
             'phone': row.phone,
-            'name': f"{row.first_name or ''} {row.last_name or ''}".strip() or 'Без імені',
+            'name': row.full_name or 'Без імені',
             'orders_count': row.orders_count or 0,
             'revenue': float(row.revenue or Decimal('0'))
         }
@@ -746,12 +750,14 @@ async def get_delivery_by_method(
     stmt = (
         select(
             Order.delivery_method,
-            func.count(Order.id).label('count')
+            func.count(Order.id).label('orders_count'),
+            func.sum(Order.total).label('revenue')
         )
         .where(
             and_(
                 Order.created_at >= start_dt,
-                Order.created_at <= end_dt
+                Order.created_at <= end_dt,
+                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
             )
         )
         .group_by(Order.delivery_method)
@@ -760,15 +766,11 @@ async def get_delivery_by_method(
     result = await session.execute(stmt)
     rows = result.all()
 
-    method_names = {
-        'nova_poshta': 'Нова Пошта',
-        'ukrposhta': 'Укрпошта'
-    }
-
     return [
         {
-            'method': method_names.get(row.delivery_method, row.delivery_method),
-            'count': row.count
+            'delivery_method': row.delivery_method,
+            'orders_count': row.orders_count or 0,
+            'revenue': float(row.revenue or Decimal('0'))
         }
         for row in rows
     ]
@@ -787,8 +789,7 @@ async def get_orders_without_ttn(
     stmt = (
         select(
             Order.id,
-            Order.first_name,
-            Order.last_name,
+            Order.full_name,
             Order.city,
             Order.delivery_method,
             Order.status,
@@ -812,11 +813,11 @@ async def get_orders_without_ttn(
     return [
         {
             'order_id': row.id,
-            'customer_name': f"{row.first_name or ''} {row.last_name or ''}".strip(),
-            'city': row.city,
+            'full_name': row.full_name or 'Без імені',
+            'city': row.city or 'Не вказано',
             'delivery_method': row.delivery_method,
             'status': row.status.value,
-            'created_at': row.created_at.strftime('%Y-%m-%d %H:%M')
+            'created_at': row.created_at.isoformat()
         }
         for row in rows
     ]

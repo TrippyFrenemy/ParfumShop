@@ -161,6 +161,8 @@ async def get_products(
     page: int = 1,
     per_page: int = 42,
     active_only: bool = True,
+    is_active_filter: Optional[bool] = None,
+    in_stock_filter: Optional[bool] = None,
 ) -> tuple[list[Product], int]:
     """
     Return a paginated list of products with optional filtering.
@@ -177,6 +179,14 @@ async def get_products(
 
     if active_only:
         conditions.append(Product.is_active.is_(True))
+
+    # Explicit is_active filter (overrides active_only)
+    if is_active_filter is not None:
+        conditions.append(Product.is_active.is_(is_active_filter))
+
+    # Explicit in_stock filter
+    if in_stock_filter is not None:
+        conditions.append(Product.in_stock.is_(in_stock_filter))
 
     if category_id is not None:
         conditions.append(Product.category_id == category_id)

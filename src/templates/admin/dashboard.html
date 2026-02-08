@@ -4,10 +4,20 @@
 {% block page_title %}Дашборд{% endblock %}
 
 {% block content %}
+<style>
+/* Make stat cards clickable - prevent inner elements from blocking clicks */
+.stat-card * {
+    pointer-events: none;
+}
+.stat-card {
+    pointer-events: auto;
+}
+</style>
+
 <!-- Stats cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
     <!-- Orders today -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+    <a href="/admin/orders?date_filter=today" class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition cursor-pointer block">
         <div class="flex items-center justify-between mb-3">
             <span class="text-sm font-medium text-gray-500">Замовлення сьогоднi</span>
             <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -15,21 +25,10 @@
             </div>
         </div>
         <p class="text-2xl font-bold text-gray-900">{{ stats.orders_today if stats is defined and stats else 0 }}</p>
-    </div>
-
-    <!-- Revenue today -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
-        <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-medium text-gray-500">Виручка сьогоднi</span>
-            <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-        </div>
-        <p class="text-2xl font-bold text-gray-900">{{ stats.revenue_today if stats is defined and stats else 0 }} грн</p>
-    </div>
+    </a>
 
     <!-- Total orders -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+    <a href="/admin/orders" class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition cursor-pointer block">
         <div class="flex items-center justify-between mb-3">
             <span class="text-sm font-medium text-gray-500">Всього замовлень</span>
             <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
@@ -37,10 +36,10 @@
             </div>
         </div>
         <p class="text-2xl font-bold text-gray-900">{{ stats.total_orders if stats is defined and stats else 0 }}</p>
-    </div>
+    </a>
 
     <!-- Pending orders -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+    <a href="/admin/orders?status=created" class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition cursor-pointer block">
         <div class="flex items-center justify-between mb-3">
             <span class="text-sm font-medium text-gray-500">Очiкують обробки</span>
             <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
@@ -48,13 +47,13 @@
             </div>
         </div>
         <p class="text-2xl font-bold text-gray-900">{{ stats.pending_orders if stats is defined and stats else 0 }}</p>
-    </div>
+    </a>
 </div>
 
 <!-- Secondary stats -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
     <!-- Active products -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+    <a href="/admin/products?is_active=true" class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition cursor-pointer block">
         <div class="flex items-center justify-between mb-3">
             <span class="text-sm font-medium text-gray-500">Активнi товари</span>
             <div class="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
@@ -62,10 +61,10 @@
             </div>
         </div>
         <p class="text-2xl font-bold text-gray-900">{{ stats.active_products_count if stats is defined and stats else 0 }}</p>
-    </div>
+    </a>
 
     <!-- Low stock -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+    <a href="/admin/products?in_stock=false" class="stat-card bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition cursor-pointer block">
         <div class="flex items-center justify-between mb-3">
             <span class="text-sm font-medium text-gray-500">Немає в наявності</span>
             <div class="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
@@ -78,7 +77,7 @@
         {% if stats is defined and stats and stats.out_of_stock_products > 0 %}
         <p class="text-xs text-red-500 mt-1">Товари відсутні на складі</p>
         {% endif %}
-    </div>
+    </a>
 
     <!-- Quick actions -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
