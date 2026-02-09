@@ -63,6 +63,12 @@ async def notify_new_order(order) -> None:
 
     url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
     payload = {
+        "chat_id": settings.TG_STAFF_CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    payload_debug = {
         "chat_id": settings.TG_CHAT_ID,
         "text": text,
         "parse_mode": "HTML",
@@ -74,5 +80,9 @@ async def notify_new_order(order) -> None:
             response = await client.post(url=url, json=payload, timeout=10.0)
             if response.status_code != 200:
                 logger.warning(f"[TG] Failed to send notification: {response.status_code} {response.text}")
+            
+            response_debug = await client.post(url=url, json=payload_debug, timeout=10.0)
+            if response_debug.status_code != 200:
+                logger.warning(f"[TG] Failed to send debug notification: {response_debug.status_code} {response_debug.text}")
     except Exception as e:
         logger.warning(f"[TG] Error sending notification: {e}")
