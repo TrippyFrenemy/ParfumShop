@@ -221,3 +221,6 @@ backup_*
 .env.prod*
 config/
 TODO
+
+logs/
+docs/

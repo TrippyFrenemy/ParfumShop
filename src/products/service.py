@@ -46,6 +46,78 @@ def preprocess_text_fields(name: str = None, brand: str = None) -> dict:
 
 
 # =========================================================================
+# Product Serialization Helper
+# =========================================================================
+
+def _product_to_dict(product: Product) -> dict:
+    """
+    Convert Product ORM instance to JSON-serializable dictionary.
+
+    Handles all 22 DB fields, 3 @property computed fields, and 3 relationships.
+    Used for caching product data.
+
+    Args:
+        product: Product ORM instance with eagerly loaded relationships
+
+    Returns:
+        Dictionary with all product data, suitable for JSON serialization
+    """
+    return {
+        # Basic fields
+        "id": product.id,
+        "name": product.name,
+        "slug": product.slug,
+        "description": product.description,
+
+        # Category
+        "category_id": product.category_id,
+        "category_name": product.category.name if product.category else None,
+
+        # Brand & Volume
+        "brand": product.brand,
+        "volume_ml": product.volume_ml,
+
+        # Prices (Decimal -> float for JSON)
+        "retail_price": float(product.retail_price),
+        "discount_price": float(product.discount_price) if product.discount_price else None,
+        "discount_start": product.discount_start.isoformat() if product.discount_start else None,
+        "discount_end": product.discount_end.isoformat() if product.discount_end else None,
+
+        # Statuses
+        "in_stock": product.in_stock,
+        "is_active": product.is_active,
+
+        # Dates (datetime -> ISO string for JSON)
+        "created_at": product.created_at.isoformat() if product.created_at else None,
+        "updated_at": product.updated_at.isoformat() if product.updated_at else None,
+
+        # Computed @property fields
+        "main_image": product.main_image,  # Already string or None
+        "is_discount_active": product.is_discount_active,  # Already bool
+        "effective_price": float(product.effective_price),  # Decimal -> float
+
+        # Relationships (convert to list of dicts)
+        "images": [
+            {
+                "id": img.id,
+                "url": img.url,
+                "sort_order": img.sort_order,
+                "is_main": img.is_main
+            }
+            for img in product.images
+        ],
+        "wholesale_tiers": [
+            {
+                "id": tier.id,
+                "min_quantity": tier.min_quantity,
+                "price": float(tier.price)  # Decimal -> float
+            }
+            for tier in product.wholesale_tiers
+        ]
+    }
+
+
+# =========================================================================
 # Categories
 # =========================================================================
 
@@ -296,6 +368,64 @@ async def get_products(
     return products, total
 
 
+@cache_result(
+    namespace="products",
+    ttl=900,  # 15 minutes
+    key_builder=build_products_cache_key
+)
+async def get_products_cached(
+    session: AsyncSession,
+    *,
+    category_id: Optional[int] = None,
+    search: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    brand: Optional[str] = None,
+    sort: str = "newest",
+    page: int = 1,
+    per_page: int = 42,
+    active_only: bool = True,
+    is_active_filter: Optional[bool] = None,
+    in_stock_filter: Optional[bool] = None,
+) -> tuple[list[dict], int]:
+    """
+    Return paginated product list as JSON-serializable dictionaries.
+
+    Cached for 15 minutes with automatic invalidation on product changes.
+    Uses the same query logic as get_products() but returns dicts instead of ORM.
+
+    Args:
+        Same as get_products()
+
+    Returns:
+        Tuple of (product_dicts, total_count)
+        - product_dicts: List of dictionaries (not ORM objects!)
+        - total_count: Total number of products matching filters
+
+    Cache key format: products:list:a3f2c1d4 (hash of all filters)
+    """
+    # Call original ORM function
+    products, total = await get_products(
+        session,
+        category_id=category_id,
+        search=search,
+        min_price=min_price,
+        max_price=max_price,
+        brand=brand,
+        sort=sort,
+        page=page,
+        per_page=per_page,
+        active_only=active_only,
+        is_active_filter=is_active_filter,
+        in_stock_filter=in_stock_filter,
+    )
+
+    # Convert each Product to dict
+    products_dict = [_product_to_dict(p) for p in products]
+
+    return products_dict, total
+
+
 async def get_product_by_slug(
     session: AsyncSession,
     slug: str,
@@ -317,6 +447,35 @@ async def get_product_by_slug(
     )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
+
+
+@cache_result(
+    namespace="products",
+    ttl=1800,  # 30 minutes
+    key_builder=lambda session, slug: f"detail:slug_{slug}"
+)
+async def get_product_by_slug_cached(
+    session: AsyncSession,
+    slug: str,
+) -> Optional[dict]:
+    """
+    Get product details by slug from cache or database.
+
+    Returns JSON-serializable dictionary for API responses.
+    Cached for 30 minutes.
+
+    Args:
+        session: Database session
+        slug: Product URL slug
+
+    Returns:
+        Product dictionary or None if not found
+    """
+    product = await get_product_by_slug(session, slug)
+    if product is None:
+        return None
+
+    return _product_to_dict(product)
 
 
 async def get_product_by_id(

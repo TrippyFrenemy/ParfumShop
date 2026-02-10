@@ -234,7 +234,7 @@ async def api_product_list(
     session: AsyncSession = Depends(get_async_session),
 ):
     """Return a paginated JSON list of products."""
-    products, total = await service.get_products(
+    products, total = await service.get_products_cached(
         session,
         category_id=category_id,
         search=search,
@@ -249,29 +249,7 @@ async def api_product_list(
     total_pages = math.ceil(total / per_page) if total else 1
 
     return ProductListOut(
-        items=[
-            ProductOut(
-                id=p.id,
-                name=p.name,
-                slug=p.slug,
-                description=p.description,
-                category_id=p.category_id,
-                category_name=p.category.name if p.category else None,
-                brand=p.brand,
-                volume_ml=p.volume_ml,
-                retail_price=p.retail_price,
-                discount_price=p.discount_price,
-                effective_price=p.effective_price,
-                in_stock=p.in_stock,
-                is_active=p.is_active,
-                main_image=p.main_image,
-                images=p.images,
-                wholesale_tiers=p.wholesale_tiers,
-                created_at=p.created_at,
-                updated_at=p.updated_at,
-            )
-            for p in products
-        ],
+        items=[ProductOut(**p) for p in products],
         total=total,
         page=page,
         per_page=per_page,
