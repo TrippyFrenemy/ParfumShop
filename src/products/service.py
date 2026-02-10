@@ -6,6 +6,8 @@ from sqlalchemy import select, func, distinct, or_, delete as sa_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.cache.decorators import cache_result
+from src.cache.utils import build_products_cache_key
 from src.products.models import Category, Product, ProductImage, WholesaleTier
 from src.products.schemas import (
     CategoryCreate,
@@ -65,6 +67,42 @@ async def get_categories(
 
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+@cache_result(namespace="categories", ttl=7200, key_builder=lambda session: "tree:all")
+async def get_category_tree_cached(session: AsyncSession) -> list[dict]:
+    """
+    Return full category tree with children count in a single query.
+    Cached for 2 hours to solve N+1 problem.
+
+    Returns:
+        List of category dictionaries with children_count
+    """
+    # Load all root categories with their children in one query (no N+1!)
+    stmt = (
+        select(Category)
+        .options(selectinload(Category.children))
+        .where(Category.parent_id.is_(None))
+        .where(Category.is_active.is_(True))
+        .order_by(Category.sort_order, Category.name)
+    )
+    result = await session.execute(stmt)
+    categories = result.scalars().all()
+
+    # Convert to dictionaries for JSON serialization
+    return [
+        {
+            "id": cat.id,
+            "name": cat.name,
+            "slug": cat.slug,
+            "parent_id": cat.parent_id,
+            "image_url": cat.image_url,
+            "sort_order": cat.sort_order,
+            "is_active": cat.is_active,
+            "children_count": len(cat.children)
+        }
+        for cat in categories
+    ]
 
 
 async def get_category_by_slug(
@@ -167,6 +205,9 @@ async def get_products(
     """
     Return a paginated list of products with optional filtering.
 
+    Note: Caching removed - SQLAlchemy objects are not JSON serializable.
+    For cached product lists, use get_products_cached() (to be implemented).
+
     Returns a tuple of (products, total_count).
     """
     base = select(Product).options(
@@ -259,7 +300,12 @@ async def get_product_by_slug(
     session: AsyncSession,
     slug: str,
 ) -> Optional[Product]:
-    """Return a single product by slug with all relationships eagerly loaded."""
+    """
+    Return a single product by slug with all relationships eagerly loaded.
+
+    Note: Caching removed - SQLAlchemy objects are not JSON serializable.
+    For cached product details, use get_product_dict_by_slug() (to be implemented).
+    """
     stmt = (
         select(Product)
         .options(
@@ -491,10 +537,11 @@ async def get_featured_products(
     return list(result.scalars().unique().all())
 
 
+@cache_result(namespace="brands", ttl=7200, key_builder=lambda session: "list:active")
 async def get_brands(
     session: AsyncSession,
 ) -> list[str]:
-    """Return a sorted list of distinct brand names (non-null)."""
+    """Return a sorted list of distinct brand names (non-null). Cached for 2 hours."""
     stmt = (
         select(distinct(Product.brand))
         .where(Product.brand.isnot(None))

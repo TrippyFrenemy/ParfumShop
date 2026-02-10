@@ -315,24 +315,7 @@ async def api_product_detail(
 async def api_category_list(
     session: AsyncSession = Depends(get_async_session),
 ):
-    """Return the top-level category tree as JSON."""
-    categories = await service.get_categories(session)
-
-    # Eagerly load children for each category so we can report children_count
-    result = []
-    for cat in categories:
-        child_cats = await service.get_categories(session, parent_id=cat.id)
-        result.append(
-            CategoryOut(
-                id=cat.id,
-                name=cat.name,
-                slug=cat.slug,
-                parent_id=cat.parent_id,
-                image_url=cat.image_url,
-                sort_order=cat.sort_order,
-                is_active=cat.is_active,
-                children_count=len(child_cats),
-            )
-        )
-
-    return result
+    """Return the top-level category tree as JSON. Cached for 2 hours."""
+    # Use cached version - solves N+1 problem with single query + cache
+    categories = await service.get_category_tree_cached(session)
+    return [CategoryOut(**cat) for cat in categories]

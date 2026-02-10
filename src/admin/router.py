@@ -10,6 +10,12 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_manager_or_admin, get_admin_user, get_warehouse_or_manager_or_admin
+from src.cache.invalidation import (
+    invalidate_categories_cache,
+    invalidate_products_cache,
+    invalidate_brands_cache,
+    invalidate_settings_cache,
+)
 from src.database import get_async_session
 from src.orders.models import Order, OrderStatus
 from src.orders.service import (
@@ -251,6 +257,10 @@ async def admin_product_create(
             ))
     await session.commit()
 
+    # Invalidate products and brands cache after create
+    await invalidate_products_cache()
+    await invalidate_brands_cache()
+
     return RedirectResponse("/admin/products?success=Товар+створено", status_code=302)
 
 
@@ -366,6 +376,11 @@ async def admin_product_edit(
     )
 
     await update_product(session, product_id, data)
+
+    # Invalidate products and brands cache after update
+    await invalidate_products_cache(product_id=product_id, slug=product.slug)
+    await invalidate_brands_cache()
+
     return RedirectResponse(f"/admin/products?success=Товар+оновлено", status_code=302)
 
 
@@ -379,6 +394,11 @@ async def admin_product_delete(
 
     s3 = get_s3_client()
     await delete_product(session, product_id, s3_client=s3)
+
+    # Invalidate products and brands cache after delete
+    await invalidate_products_cache()
+    await invalidate_brands_cache()
+
     return RedirectResponse("/admin/products?success=Товар+видалено", status_code=302)
 
 
@@ -406,6 +426,10 @@ async def admin_products_bulk_action(
         for product in result.scalars().all():
             product.is_active = True
         await session.commit()
+
+        # Invalidate products cache after bulk activate
+        await invalidate_products_cache()
+
         return RedirectResponse(f"/admin/products?success=Активовано+{len(product_ids)}+товарiв", status_code=302)
 
     elif action == "deactivate":
@@ -414,12 +438,21 @@ async def admin_products_bulk_action(
         for product in result.scalars().all():
             product.is_active = False
         await session.commit()
+
+        # Invalidate products cache after bulk deactivate
+        await invalidate_products_cache()
+
         return RedirectResponse(f"/admin/products?success=Деактивовано+{len(product_ids)}+товарiв", status_code=302)
 
     elif action == "delete":
         s3 = get_s3_client()
         for pid in product_ids:
             await delete_product(session, pid, s3_client=s3)
+
+        # Invalidate products and brands cache after bulk delete
+        await invalidate_products_cache()
+        await invalidate_brands_cache()
+
         return RedirectResponse(f"/admin/products?success=Видалено+{len(product_ids)}+товарiв", status_code=302)
 
     elif action == "change_category":
@@ -430,6 +463,10 @@ async def admin_products_bulk_action(
         for product in result.scalars().all():
             product.category_id = cat_id
         await session.commit()
+
+        # Invalidate products cache after bulk category change
+        await invalidate_products_cache()
+
         return RedirectResponse(f"/admin/products?success=Категорiю+змiнено+для+{len(product_ids)}+товарiв", status_code=302)
 
     elif action == "set_in_stock":
@@ -438,6 +475,10 @@ async def admin_products_bulk_action(
         for product in result.scalars().all():
             product.in_stock = True
         await session.commit()
+
+        # Invalidate products cache after bulk stock update
+        await invalidate_products_cache()
+
         return RedirectResponse(f"/admin/products?success=Встановлено+в+наявностi+для+{len(product_ids)}+товарiв", status_code=302)
 
     elif action == "set_out_of_stock":
@@ -446,6 +487,10 @@ async def admin_products_bulk_action(
         for product in result.scalars().all():
             product.in_stock = False
         await session.commit()
+
+        # Invalidate products cache after bulk stock update
+        await invalidate_products_cache()
+
         return RedirectResponse(f"/admin/products?success=Встановлено+немає+в+наявностi+для+{len(product_ids)}+товарiв", status_code=302)
 
     return RedirectResponse("/admin/products?error=Невiдома+дiя", status_code=302)
@@ -514,6 +559,11 @@ async def admin_product_inline_update(
 
         await session.commit()
         await session.refresh(product)
+
+        # Invalidate products cache after inline update
+        await invalidate_products_cache(product_id=product_id, slug=product.slug)
+        if field == "brand":
+            await invalidate_brands_cache()
 
         # Generate HTML fragment for HTMX to swap
         response_html = None
@@ -733,6 +783,9 @@ async def admin_category_create(
         )
         await session.commit()
 
+    # Invalidate categories cache after create
+    await invalidate_categories_cache()
+
     return RedirectResponse("/admin/categories?success=Категорiю+створено", status_code=302)
 
 
@@ -802,6 +855,10 @@ async def admin_category_edit(
         is_active=is_active == "1",
     )
     await update_category(session, category_id, data)
+
+    # Invalidate categories cache after update
+    await invalidate_categories_cache()
+
     return RedirectResponse("/admin/categories?success=Категорiю+оновлено", status_code=302)
 
 
@@ -815,6 +872,10 @@ async def admin_category_delete(
 
     s3 = get_s3_client()
     await delete_category(session, category_id, s3_client=s3)
+
+    # Invalidate categories cache after delete
+    await invalidate_categories_cache()
+
     return RedirectResponse("/admin/categories?success=Категорiю+видалено", status_code=302)
 
 
@@ -1505,6 +1566,10 @@ async def admin_settings_save(
     shop_settings.show_out_of_stock = show_out_of_stock == "1"
 
     await session.commit()
+
+    # Invalidate settings cache after save
+    await invalidate_settings_cache()
+
     return RedirectResponse("/admin/settings?success=Налаштування+збережено", status_code=302)
 
 

@@ -41,8 +41,16 @@ from src.content.seed import seed_content
 from src.database import async_session_maker
 from src.templating import templates
 
+# Import new logging system
+from src.logging_config import setup_logging, get_logger
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # FIRST: Initialize logging system
+    setup_logging()
+    logger = get_logger(__name__)
+    logger.info("Application starting up...")
+
     await create_user(role=settings.ADMIN_ROLE, email=settings.ADMIN_EMAIL, name=settings.ADMIN_NAME, password=settings.ADMIN_PASSWORD)
     # await create_user(role=settings.MANAGER_ROLE, email=settings.MANAGER_EMAIL, name=settings.MANAGER_NAME, password=settings.MANAGER_PASSWORD)
     # await create_user(role=settings.WAREHOUSE_ROLE, email=settings.WAREHOUSE_EMAIL, name=settings.WAREHOUSE_NAME, password=settings.WAREHOUSE_PASSWORD)
@@ -53,8 +61,14 @@ async def lifespan(app: FastAPI):
         if not existing:
             session.add(ShopSettings(id=1))
             await session.commit()
+
+    logger.info("Application startup complete")
     yield
-    # Cleanup actions can be added here if needed
+
+    # Cleanup actions
+    logger.info("Application shutting down...")
+    from src.logging_config.factory import LoggerFactory
+    LoggerFactory.get_instance().shutdown()
 
 app = FastAPI(lifespan=lifespan, title="Dobrotno App", description="A FastAPI application for Dobrotno Shop", version="0.0.1")
 
