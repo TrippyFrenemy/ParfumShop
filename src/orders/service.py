@@ -10,6 +10,7 @@ from src.cart.models import Cart
 from src.coupons.models import Coupon
 from src.orders.models import (
     Order, OrderItem, OrderStatus, DeliveryMethod,
+    REVENUE_STATUSES,
 )
 from src.settings.models import ShopSettings
 
@@ -263,11 +264,7 @@ async def get_order_stats(session: AsyncSession) -> dict:
 
     # Total revenue (sum of totals for paid/processing/shipped orders)
     revenue_stmt = select(func.sum(Order.total)).where(
-        Order.status.in_([
-            OrderStatus.PAID,
-            OrderStatus.PROCESSING,
-            OrderStatus.SHIPPED,
-        ])
+        Order.status.in_(REVENUE_STATUSES)
     )
     total_revenue = (await session.execute(revenue_stmt)).scalar() or Decimal("0")
 

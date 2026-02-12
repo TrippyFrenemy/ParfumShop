@@ -1027,6 +1027,7 @@ def _render_status_badge(order: Order) -> str:
         'paid': ('blue', 'Оплачено'),
         'processing': ('purple', 'В обробці'),
         'shipped': ('green', 'Відправлено'),
+        'cancelled': ('red', 'Скасовано'),
     }
 
     color, label = status_colors.get(order.status.value, ('gray', order.status_ua))
@@ -1037,6 +1038,7 @@ def _render_status_badge(order: Order) -> str:
         ('paid', 'Оплачено'),
         ('processing', 'В обробці'),
         ('shipped', 'Відправлено'),
+        ('cancelled', 'Скасовано'),
     ]
 
     options_html = ''.join([

@@ -15,6 +15,7 @@
                 <option value="paid" {% if status is defined and status == 'paid' %}selected{% endif %}>Оплаченi</option>
                 <option value="processing" {% if status is defined and status == 'processing' %}selected{% endif %}>В обробцi</option>
                 <option value="shipped" {% if status is defined and status == 'shipped' %}selected{% endif %}>Вiдправленi</option>
+                <option value="cancelled" {% if status is defined and status == 'cancelled' %}selected{% endif %}>Скасованi</option>
             </select>
         </div>
         <div class="w-full lg:w-44">
@@ -88,7 +89,8 @@
                             'created': ('yellow', 'Нове замовлення'),
                             'paid': ('blue', 'Оплачено'),
                             'processing': ('purple', 'В обробці'),
-                            'shipped': ('green', 'Відправлено')
+                            'shipped': ('green', 'Відправлено'),
+                            'cancelled': ('red', 'Скасовано')
                         } %}
                         {% set color, label = status_colors.get(order.status.value, ('gray', order.status_ua)) %}
 
@@ -109,6 +111,9 @@
                                 {% endif %}
                                 {% if order.status.value != 'shipped' %}
                                 <button type="button" class="status-option w-full text-left px-4 py-2 hover:bg-gray-100 text-sm" data-value="shipped">Відправлено</button>
+                                {% endif %}
+                                {% if order.status.value != 'cancelled' %}
+                                <button type="button" class="status-option w-full text-left px-4 py-2 hover:bg-gray-100 text-sm" data-value="cancelled">Скасовано</button>
                                 {% endif %}
                             </div>
                         </div>

@@ -13,6 +13,7 @@ class OrderStatus(str, Enum):
     PAID = "paid"
     PROCESSING = "processing"
     SHIPPED = "shipped"
+    CANCELLED = "cancelled"
 
 
 class DeliveryStatus(str, Enum):
@@ -33,7 +34,15 @@ ORDER_STATUS_UA = {
     OrderStatus.PAID: "Оплачено",
     OrderStatus.PROCESSING: "В обробці",
     OrderStatus.SHIPPED: "Відправлено",
+    OrderStatus.CANCELLED: "Скасовано",
 }
+
+# Statuses that count towards revenue and reports
+REVENUE_STATUSES = [
+    OrderStatus.PAID,
+    OrderStatus.PROCESSING,
+    OrderStatus.SHIPPED,
+]
 
 DELIVERY_STATUS_UA = {
     DeliveryStatus.PENDING: "Очікується",

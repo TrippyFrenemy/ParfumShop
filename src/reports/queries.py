@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.orders.models import Order, OrderItem, OrderStatus
+from src.orders.models import Order, OrderItem, OrderStatus, REVENUE_STATUSES
 from src.products.models import Product, Category
 
 
@@ -50,7 +50,7 @@ async def get_sales_trend(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by('period')
@@ -107,7 +107,7 @@ async def get_top_products(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by(OrderItem.product_name, Product.brand)
@@ -166,7 +166,7 @@ async def get_revenue_by_category(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by(Category.id, Category.name)
@@ -226,7 +226,8 @@ async def get_orders_by_status(
         'created': 'Нове замовлення',
         'paid': 'Оплачено',
         'processing': 'В обробці',
-        'shipped': 'Відправлено'
+        'shipped': 'Відправлено',
+        'cancelled': 'Скасовано',
     }
 
     return [
@@ -270,7 +271,7 @@ async def get_revenue_by_weekday(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by('weekday')
@@ -335,7 +336,7 @@ async def get_discount_analysis(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
     )
@@ -393,7 +394,7 @@ async def get_dead_stock(
             func.max(Order.created_at).label('last_sale_date')
         )
         .join(Order, OrderItem.order_id == Order.id)
-        .where(Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED]))
+        .where(Order.status.in_(REVENUE_STATUSES))
         .group_by(OrderItem.product_id)
         .subquery()
     )
@@ -469,7 +470,7 @@ async def get_revenue_by_brand(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by(Product.brand)
@@ -529,7 +530,7 @@ async def get_aov_trend(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by('period')
@@ -675,7 +676,7 @@ async def get_top_customers(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED]),
+                Order.status.in_(REVENUE_STATUSES),
                 Order.phone.isnot(None)
             )
         )
@@ -757,7 +758,7 @@ async def get_delivery_by_method(
             and_(
                 Order.created_at >= start_dt,
                 Order.created_at <= end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         .group_by(Order.delivery_method)

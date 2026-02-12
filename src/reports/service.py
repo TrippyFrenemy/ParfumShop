@@ -6,7 +6,7 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.reports.schemas import ReportFilters, PeriodType
-from src.orders.models import Order, OrderStatus, OrderItem
+from src.orders.models import Order, OrderStatus, OrderItem, REVENUE_STATUSES
 from src.reports.queries import (
     get_discount_analysis,
     get_sales_trend,
@@ -59,7 +59,7 @@ async def get_overview_stats(session: AsyncSession, filters: ReportFilters) -> D
         and_(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
-            Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+            Order.status.in_(REVENUE_STATUSES)
         )
     )
     total_revenue = (await session.execute(revenue_stmt)).scalar() or Decimal('0')
@@ -68,7 +68,7 @@ async def get_overview_stats(session: AsyncSession, filters: ReportFilters) -> D
         and_(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
-            Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+            Order.status.in_(REVENUE_STATUSES)
         )
     )
     orders_count = (await session.execute(orders_count_stmt)).scalar() or 0
@@ -100,7 +100,7 @@ async def get_overview_stats(session: AsyncSession, filters: ReportFilters) -> D
             and_(
                 Order.created_at >= prev_start_dt,
                 Order.created_at <= prev_end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         prev_revenue = (await session.execute(prev_revenue_stmt)).scalar() or Decimal('0')
@@ -110,7 +110,7 @@ async def get_overview_stats(session: AsyncSession, filters: ReportFilters) -> D
             and_(
                 Order.created_at >= prev_start_dt,
                 Order.created_at <= prev_end_dt,
-                Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+                Order.status.in_(REVENUE_STATUSES)
             )
         )
         prev_orders = (await session.execute(prev_orders_stmt)).scalar() or 0
@@ -204,7 +204,7 @@ async def get_orders_report(session: AsyncSession, filters: ReportFilters) -> Di
         and_(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
-            Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+            Order.status.in_(REVENUE_STATUSES)
         )
     )
 
@@ -218,7 +218,7 @@ async def get_orders_report(session: AsyncSession, filters: ReportFilters) -> Di
         and_(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
-            Order.status.in_([OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+            Order.status.in_(REVENUE_STATUSES)
         )
     )
     orders_count = (await session.execute(count_stmt)).scalar() or 0

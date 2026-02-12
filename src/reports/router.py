@@ -276,18 +276,25 @@ async def chart_orders_by_status(
     labels = [item['status'] for item in status_data]
     data = [item['count'] for item in status_data]
 
+    # Status colors mapping (Ukrainian labels to colors)
+    status_colors = {
+        'Нове замовлення': '#FCD34D',    # yellow
+        'Оплачено': '#60A5FA',            # blue
+        'В обробці': '#A78BFA',           # purple
+        'Відправлено': '#34D399',         # green
+        'Скасовано': '#F87171',           # red
+    }
+
+    # Generate colors dynamically based on status
+    colors = [status_colors.get(item['status'], '#9CA3AF') for item in status_data]
+
     chart_response = {
         "data": {
             "labels": labels,
             "datasets": [
                 {
                     "data": data,
-                    "backgroundColor": [
-                        "rgba(245, 158, 11, 0.8)",  # created - yellow
-                        "rgba(16, 185, 129, 0.8)",  # paid - green
-                        "rgba(59, 130, 246, 0.8)",  # processing - blue
-                        "rgba(236, 72, 153, 0.8)",  # shipped - pink
-                    ],
+                    "backgroundColor": colors,
                 }
             ]
         },

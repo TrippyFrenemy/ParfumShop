@@ -28,6 +28,8 @@
         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-700 border border-purple-200">{{ order.status_ua }}</span>
         {% elif order.status.value == 'shipped' %}
         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700 border border-green-200">{{ order.status_ua }}</span>
+        {% elif order.status.value == 'cancelled' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-50 text-red-700 border border-red-200">{{ order.status_ua }}</span>
         {% endif %}
 
         {% if order.delivery_status.value == 'delivered' or order.delivery_status.value == 'received' %}
@@ -119,6 +121,7 @@
                     <option value="paid" {% if order.status.value == 'paid' %}selected{% endif %}>Оплачено</option>
                     <option value="processing" {% if order.status.value == 'processing' %}selected{% endif %}>В обробцi</option>
                     <option value="shipped" {% if order.status.value == 'shipped' %}selected{% endif %}>Вiдправлено</option>
+                    <option value="cancelled" {% if order.status.value == 'cancelled' %}selected{% endif %}>Скасовано</option>
                 </select>
                 <button type="submit" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">
                     Змiнити
