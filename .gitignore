@@ -220,6 +220,7 @@ backup_*
 .env.docker*
 .env.prod*
 config/
+nul
 TODO
 
 logs/

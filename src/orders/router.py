@@ -35,6 +35,9 @@ async def checkout_page(
 
     shop_settings = await session.get(ShopSettings, 1)
     cart_data = cart_to_dict(cart)
+    products_total = sum(
+        float(item["line_total"]) for item in cart_data["items"] if item["type"] == "product"
+    )
 
     return templates.TemplateResponse(
         "checkout.html",
@@ -43,6 +46,7 @@ async def checkout_page(
             "user": user,
             "cart": cart_data,
             "shop_settings": shop_settings,
+            "products_total": products_total,
         },
     )
 
@@ -116,13 +120,18 @@ async def create_order_endpoint(
         )
     except ValueError as e:
         shop_settings = await session.get(ShopSettings, 1)
+        cart_data = cart_to_dict(cart)
+        products_total = sum(
+            float(item["line_total"]) for item in cart_data["items"] if item["type"] == "product"
+        )
         return templates.TemplateResponse(
             "checkout.html",
             {
                 "request": request,
                 "user": user,
-                "cart": cart,
+                "cart": cart_data,
                 "shop_settings": shop_settings,
+                "products_total": products_total,
                 "error": str(e),
             },
         )

@@ -26,5 +26,8 @@ celery_app.conf.beat_schedule = {
         "task": "src.tasks.cleanup.clean_old_logs",
         "schedule": crontab(hour=0, minute=0),
     },
-
+    "deactivate-expired-bundles-hourly": {
+        "task": "src.tasks.cleanup.deactivate_expired_bundles",
+        "schedule": crontab(minute=0),
+    },
 }

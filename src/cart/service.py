@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from src.bundles.models import Bundle, BundleItem
 from src.cart.models import Cart, CartItem
 from src.products.models import Product, ProductImage
 
@@ -39,14 +40,20 @@ async def get_cart(
     stmt = (
         select(Cart)
         .options(
-            selectinload(Cart.items)
-            .selectinload(CartItem.product)
-            .selectinload(Product.images),
-            selectinload(Cart.items)
-            .selectinload(CartItem.product)
-            .selectinload(Product.wholesale_tiers),
+            selectinload(Cart.items).options(
+                selectinload(CartItem.product).options(
+                    selectinload(Product.images),
+                    selectinload(Product.wholesale_tiers),
+                ),
+                selectinload(CartItem.bundle).options(
+                    selectinload(Bundle.items).options(
+                        selectinload(BundleItem.product).options(
+                            selectinload(Product.wholesale_tiers),
+                        ),
+                    ),
+                ),
+            ),
         )
-        .execution_options(populate_existing=True)
     )
 
     if user_id is not None:
@@ -82,6 +89,33 @@ async def add_to_cart(
         return existing_item
 
     item = CartItem(cart_id=cart.id, product_id=product_id, quantity=quantity)
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
+async def add_bundle_to_cart(
+    session: AsyncSession,
+    cart: Cart,
+    bundle_id: int,
+    quantity: int,
+) -> CartItem:
+    """Add a bundle to cart. If already present, increase quantity."""
+    stmt = select(CartItem).where(
+        CartItem.cart_id == cart.id,
+        CartItem.bundle_id == bundle_id,
+    )
+    result = await session.execute(stmt)
+    existing_item = result.scalar_one_or_none()
+
+    if existing_item:
+        existing_item.quantity += quantity
+        await session.commit()
+        await session.refresh(existing_item)
+        return existing_item
+
+    item = CartItem(cart_id=cart.id, bundle_id=bundle_id, quantity=quantity)
     session.add(item)
     await session.commit()
     await session.refresh(item)
@@ -145,23 +179,33 @@ async def merge_carts(
 
     user_cart = await get_or_create_cart(session, user_id=user_id)
 
-    # Build a lookup of existing user cart items by product_id
+    # Build lookups of existing user cart items
     user_items_by_product = {
-        item.product_id: item for item in user_cart.items
+        item.product_id: item for item in user_cart.items if item.product_id
+    }
+    user_items_by_bundle = {
+        item.bundle_id: item for item in user_cart.items if item.bundle_id
     }
 
     for guest_item in guest_cart.items:
-        if guest_item.product_id in user_items_by_product:
-            # Same product exists -- sum the quantities
-            user_items_by_product[guest_item.product_id].quantity += guest_item.quantity
-        else:
-            # Move item to user cart
-            new_item = CartItem(
-                cart_id=user_cart.id,
-                product_id=guest_item.product_id,
-                quantity=guest_item.quantity,
-            )
-            session.add(new_item)
+        if guest_item.bundle_id:
+            if guest_item.bundle_id in user_items_by_bundle:
+                user_items_by_bundle[guest_item.bundle_id].quantity += guest_item.quantity
+            else:
+                session.add(CartItem(
+                    cart_id=user_cart.id,
+                    bundle_id=guest_item.bundle_id,
+                    quantity=guest_item.quantity,
+                ))
+        elif guest_item.product_id:
+            if guest_item.product_id in user_items_by_product:
+                user_items_by_product[guest_item.product_id].quantity += guest_item.quantity
+            else:
+                session.add(CartItem(
+                    cart_id=user_cart.id,
+                    product_id=guest_item.product_id,
+                    quantity=guest_item.quantity,
+                ))
 
     # Delete the guest cart (cascade removes its items)
     await session.delete(guest_cart)
@@ -180,22 +224,44 @@ def cart_to_dict(cart: Optional[Cart]) -> dict:
     # Sort items by ID to ensure consistent ordering
     sorted_items = sorted(cart.items, key=lambda x: x.id)
     for item in sorted_items:
-        product = item.product
-        price_per_unit = product.get_price_for_quantity(item.quantity) if product else Decimal("0")
-        line_total = price_per_unit * item.quantity if product else Decimal("0")
-
-        items.append({
-            "id": item.id,
-            "product_id": item.product_id,
-            "product_name": product.name if product else "",
-            "product_slug": product.slug if product else "",
-            "product_brand": product.brand if product else "",
-            "product_volume_ml": product.volume_ml if product else None,
-            "product_image": product.main_image if product else None,
-            "price_per_unit": str(price_per_unit),
-            "quantity": item.quantity,
-            "line_total": str(line_total),
-        })
+        if item.bundle_id and item.bundle:
+            bundle = item.bundle
+            line_total = bundle.custom_price * item.quantity
+            items.append({
+                "type": "bundle",
+                "id": item.id,
+                "bundle_id": item.bundle_id,
+                "bundle_name": bundle.name or "",
+                "bundle_image": bundle.image_url,
+                "custom_price": str(bundle.custom_price),
+                "quantity": item.quantity,
+                "line_total": str(line_total),
+                "bundle_items": [
+                    {
+                        "product_name": bi.product.name if bi.product else "",
+                        "product_slug": bi.product.slug if bi.product else "",
+                        "quantity": bi.quantity,
+                    }
+                    for bi in bundle.items
+                ],
+            })
+        else:
+            product = item.product
+            price_per_unit = product.get_price_for_quantity(item.quantity) if product else Decimal("0")
+            line_total = price_per_unit * item.quantity if product else Decimal("0")
+            items.append({
+                "type": "product",
+                "id": item.id,
+                "product_id": item.product_id,
+                "product_name": product.name if product else "",
+                "product_slug": product.slug if product else "",
+                "product_brand": product.brand if product else "",
+                "product_volume_ml": product.volume_ml if product else None,
+                "product_image": product.main_image if product else None,
+                "price_per_unit": str(price_per_unit),
+                "quantity": item.quantity,
+                "line_total": str(line_total),
+            })
 
     total_items = sum(i["quantity"] for i in items)
     total_price = sum(Decimal(i["line_total"]) for i in items)

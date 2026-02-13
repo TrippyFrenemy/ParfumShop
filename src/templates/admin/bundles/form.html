@@ -1,0 +1,262 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Редагувати набiр' if bundle is defined and bundle else 'Новий набiр' }}{% endblock %}
+{% block page_title %}{{ 'Редагувати набiр' if bundle is defined and bundle else 'Новий набiр' }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl">
+    <form method="POST" action="{{ '/admin/bundles/' ~ bundle.id ~ '/edit' if bundle is defined and bundle else '/admin/bundles/create' }}">
+        <!-- Basic info -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-5">Основна iнформацiя</h2>
+            <div class="space-y-5">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1.5">Назва набору <span class="text-red-500">*</span></label>
+                    <input type="text" id="name" name="name" required
+                           value="{{ bundle.name if bundle is defined and bundle else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition"
+                           placeholder="Набiр &laquo;Весна&raquo;">
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1.5">Опис</label>
+                    <textarea id="description" name="description" rows="3"
+                              class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition resize-none"
+                              placeholder="Короткий опис набору...">{{ bundle.description if bundle is defined and bundle and bundle.description else '' }}</textarea>
+                </div>
+                <div>
+                    <label for="image_url" class="block text-sm font-medium text-gray-700 mb-1.5">URL зображення</label>
+                    <input type="url" id="image_url" name="image_url"
+                           value="{{ bundle.image_url if bundle is defined and bundle and bundle.image_url else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition"
+                           placeholder="https://...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Bundle items -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-lg font-semibold text-gray-900">Товари в наборi</h2>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-400">Сума: <span id="items-total-hint" class="font-semibold text-gray-700">—</span></span>
+                    <button type="button" id="add-item-btn"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Додати товар
+                    </button>
+                </div>
+            </div>
+
+            <div id="bundle-items" class="space-y-3"></div>
+
+            <p id="no-items-hint" class="text-sm text-gray-400 text-center py-4">
+                Натиснiть «Додати товар» щоб додати позицiю в набiр
+            </p>
+        </div>
+
+        
+        <!-- Pricing & expiry -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-5">Цiна та термiн дiї</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="custom_price" class="block text-sm font-medium text-gray-700 mb-1.5">Цiна набору (грн) <span class="text-red-500">*</span></label>
+                    <input type="number" id="custom_price" name="custom_price" step="0.01" min="0.01" required
+                           value="{{ bundle.custom_price if bundle is defined and bundle else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition"
+                           placeholder="999.00">
+                </div>
+                <div>
+                    <label for="expires_at" class="block text-sm font-medium text-gray-700 mb-1.5">Термiн дiї до</label>
+                    <input type="datetime-local" id="expires_at" name="expires_at"
+                           value="{{ bundle.expires_at.strftime('%Y-%m-%dT%H:%M') if bundle is defined and bundle and bundle.expires_at else '' }}"
+                           class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition">
+                    <p class="mt-1 text-xs text-gray-400">Залиште порожнiм для безстрокового набору</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 pt-4">
+                <input type="checkbox" id="is_active" name="is_active" value="1"
+                       {% if bundle is not defined or not bundle or bundle.is_active %}checked{% endif %}
+                       class="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500">
+                <label for="is_active" class="text-sm font-medium text-gray-700">Набiр активний</label>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex items-center gap-3">
+            <button type="submit" class="px-6 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition shadow-sm">
+                {{ 'Зберегти змiни' if bundle is defined and bundle else 'Створити набiр' }}
+            </button>
+            <a href="/admin/bundles" class="px-6 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition">
+                Скасувати
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    // Products catalogue from server
+    const ALL_PRODUCTS = [
+        {% if products is defined %}
+        {% for p in products %}
+        {"id": {{ p.id }}, "name": {{ p.name | tojson }}, "brand": {{ (p.brand or '') | tojson }}, "price": {{ p.effective_price }}}{% if not loop.last %},{% endif %}
+        {% endfor %}
+        {% endif %}
+    ];
+
+    // Existing items when editing
+    const INITIAL_ITEMS = [
+        {% if bundle is defined and bundle and bundle.items %}
+        {% for item in bundle.items %}
+        {"product_id": {{ item.product_id }}, "quantity": {{ item.quantity }}}{% if not loop.last %},{% endif %}
+        {% endfor %}
+        {% endif %}
+    ];
+
+    const container = document.getElementById('bundle-items');
+    const addBtn    = document.getElementById('add-item-btn');
+    const hint      = document.getElementById('no-items-hint');
+    const totalHint = document.getElementById('items-total-hint');
+    const priceInput = document.getElementById('custom_price');
+
+    function updateHint() {
+        hint.classList.toggle('hidden', container.children.length > 0);
+    }
+
+    function recalcPrice(autoFill) {
+        let total = 0;
+        container.querySelectorAll('.bundle-item').forEach(function (row) {
+            const pid = parseInt(row.querySelector('.pid-input').value);
+            const qty = parseInt(row.querySelector('.qty-input').value) || 1;
+            if (pid) {
+                const p = ALL_PRODUCTS.find(function (x) { return x.id === pid; });
+                if (p) total += p.price * qty;
+            }
+        });
+        if (total > 0) {
+            totalHint.textContent = total.toFixed(2) + ' грн';
+            if (autoFill) priceInput.value = total.toFixed(2);
+        } else {
+            totalHint.textContent = '—';
+        }
+    }
+
+    function productLabel(p) {
+        return p.name + (p.brand ? ' (' + p.brand + ')' : '') + ' — ' + p.price + ' грн';
+    }
+
+    function renderDropdown(dropEl, query, currentPid) {
+        const q = query.toLowerCase();
+        const filtered = ALL_PRODUCTS.filter(function (p) {
+            return p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
+        }).slice(0, 40);
+        dropEl.innerHTML = '';
+        if (!filtered.length) {
+            dropEl.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">Нiчого не знайдено</div>';
+            return;
+        }
+        filtered.forEach(function (p) {
+            const div = document.createElement('div');
+            const isSelected = p.id === currentPid;
+            div.className = 'px-3 py-2 text-sm cursor-pointer hover:bg-brand-50 transition' +
+                (isSelected ? ' bg-brand-50 text-brand-700 font-medium' : ' text-gray-700');
+            div.textContent = productLabel(p);
+            div.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                const row = dropEl.closest('.bundle-item');
+                row.querySelector('.pid-input').value = p.id;
+                row.querySelector('.search-input').value = productLabel(p);
+                dropEl.classList.add('hidden');
+                recalcPrice(true);
+            });
+            dropEl.appendChild(div);
+        });
+    }
+
+    function buildRow(presetProductId, presetQty) {
+        const row = document.createElement('div');
+        row.className = 'bundle-item flex items-center gap-3 p-3 bg-gray-50 rounded-lg relative';
+
+        // Searchable selector wrapper
+        const wrap = document.createElement('div');
+        wrap.className = 'relative flex-1';
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'search-input w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 transition';
+        searchInput.placeholder = 'Пошук товару...';
+        searchInput.autocomplete = 'off';
+
+        const pidInput = document.createElement('input');
+        pidInput.type = 'hidden';
+        pidInput.name = 'product_ids';
+        pidInput.className = 'pid-input';
+
+        const dropEl = document.createElement('div');
+        dropEl.className = 'dropdown hidden absolute z-30 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1';
+
+        searchInput.addEventListener('focus', function () {
+            dropEl.classList.remove('hidden');
+            renderDropdown(dropEl, searchInput.value, parseInt(pidInput.value) || null);
+        });
+        searchInput.addEventListener('input', function () {
+            dropEl.classList.remove('hidden');
+            renderDropdown(dropEl, searchInput.value, null);
+        });
+        searchInput.addEventListener('blur', function () {
+            setTimeout(function () { dropEl.classList.add('hidden'); }, 150);
+        });
+
+        wrap.appendChild(searchInput);
+        wrap.appendChild(pidInput);
+        wrap.appendChild(dropEl);
+
+        // Quantity input
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.name = 'quantities';
+        qtyInput.className = 'qty-input w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 transition text-center';
+        qtyInput.value = presetQty || '1';
+        qtyInput.min = '1';
+        qtyInput.placeholder = 'Кiл.';
+        qtyInput.addEventListener('input', function () { recalcPrice(true); });
+
+        // Remove button
+        const rmBtn = document.createElement('button');
+        rmBtn.type = 'button';
+        rmBtn.className = 'p-2 text-gray-400 hover:text-red-500 transition shrink-0';
+        rmBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+        rmBtn.addEventListener('click', function () { row.remove(); updateHint(); recalcPrice(true); });
+
+        row.appendChild(wrap);
+        row.appendChild(qtyInput);
+        row.appendChild(rmBtn);
+
+        // Pre-fill if editing
+        if (presetProductId) {
+            const p = ALL_PRODUCTS.find(function (x) { return x.id === presetProductId; });
+            if (p) {
+                pidInput.value = p.id;
+                searchInput.value = productLabel(p);
+            }
+        }
+
+        return row;
+    }
+
+    // Render initial items (edit mode) — recalcPrice без autoFill щоб не перетирати збережену ціну
+    INITIAL_ITEMS.forEach(function (item) {
+        container.appendChild(buildRow(item.product_id, item.quantity));
+    });
+    updateHint();
+    recalcPrice(false);
+
+    addBtn.addEventListener('click', function () {
+        container.appendChild(buildRow(null, 1));
+        updateHint();
+        container.lastElementChild.querySelector('.search-input').focus();
+    });
+})();
+</script>
+{% endblock %}

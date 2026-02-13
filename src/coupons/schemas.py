@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class CouponValidateRequest(BaseModel):
     code: str
     cart_total: float = Field(..., gt=0)
+    products_total: Optional[float] = None  # total of non-bundle items; used when applies_to_bundles=False
 
 
 class CouponValidateResponse(BaseModel):
@@ -33,6 +34,7 @@ class CouponCreate(BaseModel):
     min_order_amount: Decimal = Field(default=Decimal("0"), ge=0, decimal_places=2)
     max_uses: Optional[int] = Field(default=None, ge=1)
     is_active: bool = True
+    applies_to_bundles: bool = True
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
 
@@ -44,6 +46,7 @@ class CouponUpdate(BaseModel):
     min_order_amount: Optional[Decimal] = Field(default=None, ge=0, decimal_places=2)
     max_uses: Optional[int] = Field(default=None, ge=1)
     is_active: Optional[bool] = None
+    applies_to_bundles: Optional[bool] = None
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
 

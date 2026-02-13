@@ -20,6 +20,7 @@ from src.users.models import User, UserRole
 from src.database import get_async_session
 from src.settings.models import ShopSettings
 
+from src.bundles.router import router as bundles_router
 from src.auth.router import router as auth_router
 from src.users.router import router as users_router
 from src.logs.router import router as logs_router
@@ -34,6 +35,7 @@ from src.reports.router import router as reports_router
 from src.utils.create_preconfig_users import create_user
 from src.config import settings
 from src.products.service import get_categories, get_featured_products, get_products
+from src.bundles.service import get_bundles_cached
 
 from src.logs.middleware import LogUserActionMiddleware
 from src.content.middleware import ContentMiddleware
@@ -113,6 +115,8 @@ async def root(
     new_products_list, _ = await get_products(session, page=1, per_page=8)
 
     shop_settings = await session.get(ShopSettings, 1)
+    show_oos = bool(shop_settings and shop_settings.show_out_of_stock)
+    bundles = await get_bundles_cached(session, show_out_of_stock=show_oos)
 
     return templates.TemplateResponse(
         "index.html",
@@ -122,6 +126,7 @@ async def root(
             "categories": categories,
             "featured_products": featured_products,
             "new_products": new_products_list,
+            "bundles": bundles,
             "settings": shop_settings,
         },
     )
@@ -188,6 +193,11 @@ app.include_router(
 app.include_router(
     router=orders_router,
     tags=["Orders"],
+)
+
+app.include_router(
+    router=bundles_router,
+    tags=["Bundles"],
 )
 
 app.include_router(

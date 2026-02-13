@@ -207,23 +207,22 @@ async function applyCoupon() {
     if (!code) return;
 
     const subtotal = parsePrice(subtotalEl ? subtotalEl.textContent : totalEl.textContent);
-    console.log('Subtotal:', subtotal, 'Element text:', subtotalEl?.textContent);
+    const ptAttr = document.getElementById('coupon-section')?.dataset.productsTotal;
+    const productsTotal = (ptAttr != null && ptAttr !== '') ? parseFloat(ptAttr) : subtotal;
 
     try {
         const res = await fetch('/coupons/validate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ code: code, cart_total: subtotal })
+            body: JSON.stringify({ code: code, cart_total: subtotal, products_total: productsTotal })
         });
         const data = await res.json();
-        console.log('Coupon response:', data);
         resultEl.classList.remove('hidden');
 
         if (data.valid) {
             const discount = Number(data.estimated_discount || 0);
             const newTotal = Math.max(0, subtotal - discount);
-            console.log('Discount:', discount, 'New Total:', newTotal, 'Total Element:', totalEl);
 
             resultEl.className = 'mt-2 text-sm text-green-600';
             resultEl.textContent = 'Купон застосовано! Знижка: ' + discount.toFixed(2) + ' грн';
@@ -232,9 +231,6 @@ async function applyCoupon() {
 
             if (totalEl) {
                 totalEl.textContent = newTotal.toFixed(2) + ' грн';
-                console.log('Updated total element to:', totalEl.textContent);
-            } else {
-                console.error('Total element not found!');
             }
         } else {
             resultEl.className = 'mt-2 text-sm text-red-600';

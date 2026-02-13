@@ -28,7 +28,20 @@ async def validate_coupon_endpoint(
             message=error_msg or "Купон не знайдено",
         )
 
-    estimated_discount = coupon.calculate_discount(body.cart_total)
+    # Use products-only total for coupons that don't apply to bundles
+    if not coupon.applies_to_bundles and body.products_total is not None:
+        base_for_discount = body.products_total
+    else:
+        base_for_discount = body.cart_total
+
+    # If the coupon excludes bundles but the entire cart is bundles, nothing is discountable
+    if not coupon.applies_to_bundles and body.products_total is not None and base_for_discount == 0:
+        return CouponValidateResponse(
+            valid=False,
+            message="Цей купон не застосовується до наборів",
+        )
+
+    estimated_discount = coupon.calculate_discount(base_for_discount)
 
     return CouponValidateResponse(
         valid=True,

@@ -141,23 +141,41 @@
                     <div class="space-y-3 mb-4 max-h-80 overflow-y-auto">
                         {% for item in cart["items"] %}
                         <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-50 shrink-0">
-                                {% if item.product_image %}
-                                <img src="{{ item.product_image }}" class="w-full h-full object-cover">
+                            <div class="w-12 h-12 rounded-lg overflow-hidden {% if item['type'] == 'bundle' %}bg-brand-50{% else %}bg-gray-50{% endif %} shrink-0">
+                                {% if item["type"] == "bundle" %}
+                                    {% if item["bundle_image"] %}
+                                    <img src="{{ item['bundle_image'] }}" class="w-full h-full object-cover">
+                                    {% else %}
+                                    <div class="w-full h-full flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                    </div>
+                                    {% endif %}
+                                {% else %}
+                                    {% if item["product_image"] %}
+                                    <img src="{{ item['product_image'] }}" class="w-full h-full object-cover">
+                                    {% endif %}
                                 {% endif %}
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm text-gray-800 line-clamp-1">{{ item.product_name }}</p>
-                                <p class="text-xs text-gray-400">{{ item.quantity }} x {{ item.price_per_unit }} грн</p>
+                                {% if item["type"] == "bundle" %}
+                                <p class="text-sm text-gray-800 line-clamp-1">
+                                    {{ item["bundle_name"] }}
+                                    <span class="ml-1 text-xs font-medium text-brand-600">Набiр</span>
+                                </p>
+                                <p class="text-xs text-gray-400">{{ item["quantity"] }} x {{ item["custom_price"] }} грн</p>
+                                {% else %}
+                                <p class="text-sm text-gray-800 line-clamp-1">{{ item["product_name"] }}</p>
+                                <p class="text-xs text-gray-400">{{ item["quantity"] }} x {{ item["price_per_unit"] }} грн</p>
+                                {% endif %}
                             </div>
-                            <span class="text-sm font-medium shrink-0">{{ item.line_total }} грн</span>
+                            <span class="text-sm font-medium shrink-0">{{ item["line_total"] }} грн</span>
                         </div>
                         {% endfor %}
                     </div>
                     {% endif %}
 
                     <!-- Coupon -->
-                    <div class="border-t border-gray-100 pt-4 mb-4">
+                    <div class="border-t border-gray-100 pt-4 mb-4" id="coupon-section" data-products-total="{{ products_total if products_total is defined else cart['total_price'] }}">
                         <div class="flex gap-2">
                             <input type="text" id="coupon-input" name="coupon_code" placeholder="{{ t('checkout.coupon_placeholder', 'Промокод') }}"
                                    class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-400">
@@ -205,5 +223,5 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/inputmask@5/dist/inputmask.min.js"></script>
-<script src="/static/js/checkout.js"></script>
+<script src="/static/js/checkout.js?v=2"></script>
 {% endblock %}

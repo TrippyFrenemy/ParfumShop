@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_manager_or_admin, get_admin_user, get_warehouse_or_manager_or_admin
 from src.cache.invalidation import (
+    invalidate_bundles_cache,
     invalidate_categories_cache,
     invalidate_products_cache,
     invalidate_brands_cache,
@@ -1426,6 +1427,7 @@ async def admin_coupon_create(
     min_order_amount: str = Form("0"),
     max_uses: Optional[str] = Form(None),
     is_active: Optional[str] = Form(None),
+    applies_to_bundles: Optional[str] = Form(None),
     valid_from: Optional[str] = Form(None),
     valid_until: Optional[str] = Form(None),
     session: AsyncSession = Depends(get_async_session),
@@ -1440,6 +1442,7 @@ async def admin_coupon_create(
         min_order_amount=Decimal(min_order_amount) if min_order_amount else Decimal("0"),
         max_uses=int(max_uses) if max_uses else None,
         is_active=is_active == "1",
+        applies_to_bundles=applies_to_bundles == "1",
         valid_from=datetime.fromisoformat(valid_from) if valid_from else None,
         valid_until=datetime.fromisoformat(valid_until) if valid_until else None,
     )
@@ -1480,6 +1483,7 @@ async def admin_coupon_edit(
     min_order_amount: str = Form("0"),
     max_uses: Optional[str] = Form(None),
     is_active: Optional[str] = Form(None),
+    applies_to_bundles: Optional[str] = Form(None),
     valid_from: Optional[str] = Form(None),
     valid_until: Optional[str] = Form(None),
     session: AsyncSession = Depends(get_async_session),
@@ -1494,6 +1498,7 @@ async def admin_coupon_edit(
         min_order_amount=Decimal(min_order_amount) if min_order_amount else Decimal("0"),
         max_uses=int(max_uses) if max_uses else None,
         is_active=is_active == "1",
+        applies_to_bundles=applies_to_bundles == "1",
         valid_from=datetime.fromisoformat(valid_from) if valid_from else None,
         valid_until=datetime.fromisoformat(valid_until) if valid_until else None,
     )
@@ -1768,3 +1773,234 @@ async def admin_content_delete(
         f"/admin/content?page={page}&success=Запис+видалено",
         status_code=302,
     )
+
+
+# =========================================================================
+# Bundles
+# =========================================================================
+
+from src.bundles.models import Bundle, BundleItem
+from src.bundles.schemas import BundleCreate, BundleUpdate, BundleItemCreate
+from src.bundles.service import (
+    create_bundle,
+    delete_bundle,
+    get_bundle_by_id,
+    get_bundles,
+    update_bundle,
+)
+
+
+@router.get("/bundles", response_class=HTMLResponse)
+async def admin_bundles_list(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    bundles = await get_bundles(session, active_only=False)
+    return templates.TemplateResponse(
+        "admin/bundles/list.html",
+        {
+            "request": request,
+            "user": user,
+            "bundles": bundles,
+            "active_page": "bundles",
+        },
+    )
+
+
+@router.get("/bundles/create", response_class=HTMLResponse)
+async def admin_bundle_create_form(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    all_products, _ = await get_products(session, per_page=9999, active_only=False)
+    return templates.TemplateResponse(
+        "admin/bundles/form.html",
+        {
+            "request": request,
+            "user": user,
+            "products": all_products,
+            "active_page": "bundles",
+        },
+    )
+
+
+@router.post("/bundles/create")
+async def admin_bundle_create(
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    image_url: Optional[str] = Form(None),
+    custom_price: str = Form(...),
+    expires_at: Optional[str] = Form(None),
+    is_active: Optional[str] = Form(None),
+    product_ids: list[int] = Form(default=[]),
+    quantities: list[int] = Form(default=[]),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    items = [
+        BundleItemCreate(product_id=pid, quantity=qty)
+        for pid, qty in zip(product_ids, quantities)
+        if pid
+    ]
+    data = BundleCreate(
+        name=name,
+        description=description or None,
+        image_url=image_url or None,
+        custom_price=Decimal(custom_price),
+        expires_at=datetime.fromisoformat(expires_at) if expires_at else None,
+        is_active=is_active == "1",
+        items=items,
+    )
+    await create_bundle(session, data)
+    await invalidate_bundles_cache()
+    return RedirectResponse("/admin/bundles?success=Набір+створено", status_code=302)
+
+
+@router.get("/bundles/{bundle_id}/edit", response_class=HTMLResponse)
+async def admin_bundle_edit_form(
+    request: Request,
+    bundle_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    bundle = await get_bundle_by_id(session, bundle_id)
+    if not bundle:
+        return RedirectResponse("/admin/bundles?error=Набір+не+знайдено", status_code=302)
+    all_products, _ = await get_products(session, per_page=9999, active_only=False)
+    return templates.TemplateResponse(
+        "admin/bundles/form.html",
+        {
+            "request": request,
+            "user": user,
+            "bundle": bundle,
+            "products": all_products,
+            "active_page": "bundles",
+        },
+    )
+
+
+@router.post("/bundles/{bundle_id}/edit")
+async def admin_bundle_edit(
+    bundle_id: int,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    image_url: Optional[str] = Form(None),
+    custom_price: str = Form(...),
+    expires_at: Optional[str] = Form(None),
+    is_active: Optional[str] = Form(None),
+    product_ids: list[int] = Form(default=[]),
+    quantities: list[int] = Form(default=[]),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    bundle = await get_bundle_by_id(session, bundle_id)
+    if not bundle:
+        return RedirectResponse("/admin/bundles?error=Набір+не+знайдено", status_code=302)
+    items = [
+        BundleItemCreate(product_id=pid, quantity=qty)
+        for pid, qty in zip(product_ids, quantities)
+        if pid
+    ]
+    data = BundleUpdate(
+        name=name,
+        description=description or None,
+        image_url=image_url or None,
+        custom_price=Decimal(custom_price),
+        expires_at=datetime.fromisoformat(expires_at) if expires_at else None,
+        is_active=is_active == "1",
+        items=items,
+    )
+    await update_bundle(session, bundle, data)
+    await invalidate_bundles_cache()
+    return RedirectResponse("/admin/bundles?success=Набір+оновлено", status_code=302)
+
+
+@router.post("/bundles/{bundle_id}/delete")
+async def admin_bundle_delete(
+    bundle_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    await delete_bundle(session, bundle_id)
+    await invalidate_bundles_cache()
+    return RedirectResponse("/admin/bundles?success=Набір+видалено", status_code=302)
+
+
+@router.post("/bundles/{bundle_id}/inline-update", response_class=HTMLResponse)
+async def admin_bundle_inline_update(
+    bundle_id: int,
+    field: str = Form(...),
+    value: str = Form(...),
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """HTMX endpoint: update a single bundle field inline."""
+    bundle = await get_bundle_by_id(session, bundle_id)
+    if not bundle:
+        return HTMLResponse("<span class='text-red-600'>Помилка: набір не знайдено</span>", status_code=404)
+
+    try:
+        if field == "custom_price":
+            bundle.custom_price = Decimal(value)
+        elif field == "name":
+            from slugify import slugify as _slugify
+            bundle.name = value.strip()
+            # regenerate slug only if name actually changed
+            bundle.slug = _slugify(value.strip())
+        elif field == "is_active":
+            bundle.is_active = value.lower() in ("true", "1", "yes")
+        else:
+            return HTMLResponse("<span class='text-red-600'>Невідоме поле</span>", status_code=400)
+
+        await session.commit()
+        await session.refresh(bundle)
+        await invalidate_bundles_cache()
+
+        if field == "custom_price":
+            response_html = (
+                f'<span class="editable-bundle-cell font-semibold text-gray-900 cursor-pointer'
+                f' hover:bg-gray-100 px-2 py-1 rounded transition inline-block"'
+                f' data-field="custom_price" data-value="{bundle.custom_price}" data-bundle-id="{bundle_id}">'
+                f'{bundle.custom_price} грн</span>'
+            )
+        elif field == "name":
+            response_html = (
+                f'<div class="editable-bundle-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition"'
+                f' data-field="name" data-value="{bundle.name}" data-bundle-id="{bundle_id}">'
+                f'<p class="font-medium text-gray-900">{bundle.name}</p>'
+                f'<p class="text-xs text-gray-400 font-mono">{bundle.slug}</p></div>'
+            )
+        elif field == "is_active":
+            if bundle.is_expired:
+                response_html = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Прострочено</span>'
+            elif bundle.is_active:
+                response_html = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Активний</span>'
+            else:
+                response_html = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Вимкнено</span>'
+        return HTMLResponse(response_html)
+    except Exception as exc:
+        return HTMLResponse(f"<span class='text-red-600'>Помилка: {exc}</span>", status_code=500)
+
+
+@router.post("/bundles/{bundle_id}/toggle", response_class=HTMLResponse)
+async def admin_bundle_toggle(
+    bundle_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_manager_or_admin),
+):
+    """HTMX endpoint: toggle is_active and return a status badge fragment."""
+    bundle = await get_bundle_by_id(session, bundle_id)
+    if not bundle:
+        return HTMLResponse("", status_code=404)
+    bundle.is_active = not bundle.is_active
+    await session.commit()
+    await invalidate_bundles_cache()
+    if bundle.is_expired:
+        badge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Прострочено</span>'
+    elif bundle.is_active:
+        badge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Активний</span>'
+    else:
+        badge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Вимкнено</span>'
+    return HTMLResponse(badge)

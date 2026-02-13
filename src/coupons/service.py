@@ -64,6 +64,7 @@ async def create_coupon(session: AsyncSession, data: CouponCreate) -> Coupon:
         min_order_amount=data.min_order_amount,
         max_uses=data.max_uses,
         is_active=data.is_active,
+        applies_to_bundles=data.applies_to_bundles,
         valid_from=data.valid_from,
         valid_until=data.valid_until,
     )

@@ -30,14 +30,18 @@ class CartItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     cart_id = Column(Integer, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    bundle_id = Column(Integer, ForeignKey("bundles.id"), nullable=True)
     quantity = Column(Integer, default=1, nullable=False)
 
     cart = relationship("Cart", back_populates="items")
     product = relationship("Product")
+    bundle = relationship("Bundle")
 
     @property
     def line_total(self):
+        if self.bundle_id and self.bundle:
+            return self.bundle.custom_price * self.quantity
         if self.product:
             price = self.product.get_price_for_quantity(self.quantity)
             return price * self.quantity

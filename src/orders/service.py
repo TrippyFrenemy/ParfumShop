@@ -6,6 +6,7 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from fastapi import HTTPException
 from src.cart.models import Cart
 from src.coupons.models import Coupon
 from src.orders.models import (
@@ -53,25 +54,45 @@ async def create_order(
 
     # Calculate subtotal from cart items (snapshot prices at order time)
     subtotal = Decimal("0")
+    products_subtotal = Decimal("0")  # subtotal excluding bundles (for coupon calc)
     order_items: list[OrderItem] = []
     for cart_item in cart.items:
-        product = cart_item.product
-        if not product:
-            continue
-        price = product.get_price_for_quantity(cart_item.quantity)
-        line_total = Decimal(str(price)) * cart_item.quantity
-        subtotal += line_total
-
-        order_items.append(
-            OrderItem(
-                product_id=product.id,
-                product_name=product.name,
-                product_image_url=product.main_image,
-                price_per_unit=price,
-                quantity=cart_item.quantity,
-                total=line_total,
+        if cart_item.bundle_id and cart_item.bundle:
+            bundle = cart_item.bundle
+            if not bundle.is_available:
+                raise HTTPException(status_code=400, detail="Набір більше недоступний")
+            line_total = Decimal(str(bundle.custom_price)) * cart_item.quantity
+            subtotal += line_total
+            order_items.append(
+                OrderItem(
+                    bundle_id=bundle.id,
+                    bundle_name=bundle.name,
+                    product_id=None,
+                    product_name=bundle.name,
+                    product_image_url=bundle.image_url,
+                    price_per_unit=bundle.custom_price,
+                    quantity=cart_item.quantity,
+                    total=line_total,
+                )
             )
-        )
+        else:
+            product = cart_item.product
+            if not product:
+                continue
+            price = product.get_price_for_quantity(cart_item.quantity)
+            line_total = Decimal(str(price)) * cart_item.quantity
+            subtotal += line_total
+            products_subtotal += line_total
+            order_items.append(
+                OrderItem(
+                    product_id=product.id,
+                    product_name=product.name,
+                    product_image_url=product.main_image,
+                    price_per_unit=price,
+                    quantity=cart_item.quantity,
+                    total=line_total,
+                )
+            )
 
     if subtotal < min_amount:
         raise ValueError(
@@ -82,7 +103,8 @@ async def create_order(
     discount_amount = Decimal("0")
     coupon_id = None
     if coupon:
-        discount_amount = Decimal(str(coupon.calculate_discount(float(subtotal))))
+        base_for_discount = float(products_subtotal) if not coupon.applies_to_bundles else float(subtotal)
+        discount_amount = Decimal(str(coupon.calculate_discount(base_for_discount)))
         coupon_id = coupon.id
 
     total = subtotal - discount_amount

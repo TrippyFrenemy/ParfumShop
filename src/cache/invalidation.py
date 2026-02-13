@@ -90,13 +90,27 @@ async def invalidate_reports_cache():
     logger.info(f"Invalidated reports cache ({count} keys)")
 
 
+async def invalidate_bundles_cache():
+    """
+    Invalidate all bundles cache.
+
+    Should be called after:
+    - Creating a bundle
+    - Updating bundle details, price, or components
+    - Deleting a bundle
+    - Toggling is_active
+    """
+    count = await cache_manager.invalidate_namespace("bundles")
+    logger.info(f"Invalidated bundles cache ({count} keys)")
+
+
 async def invalidate_all_cache():
     """
     Invalidate ALL application cache.
 
     Use with caution - this clears everything.
     """
-    namespaces = ["categories", "brands", "products", "settings", "reports"]
+    namespaces = ["categories", "brands", "products", "settings", "reports", "bundles"]
     total = 0
 
     for namespace in namespaces:

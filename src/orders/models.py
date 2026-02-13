@@ -119,6 +119,8 @@ class OrderItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    bundle_id = Column(Integer, ForeignKey("bundles.id"), nullable=True)
+    bundle_name = Column(String(255), nullable=True)
     product_name = Column(String(255), nullable=False)
     product_image_url = Column(String(500), nullable=True)
     price_per_unit = Column(Numeric(10, 2), nullable=False)
@@ -127,3 +129,4 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product")
+    bundle = relationship("Bundle")

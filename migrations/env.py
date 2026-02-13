@@ -14,6 +14,7 @@ from src.config import settings
 from src.users.models import *
 from src.logs.models import *
 from src.products.models import *
+from src.bundles.models import *
 from src.cart.models import *
 from src.coupons.models import *
 from src.orders.models import *

@@ -23,6 +23,7 @@ class Coupon(Base):
     max_uses = Column(Integer, nullable=True)
     used_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    applies_to_bundles = Column(Boolean, default=True, server_default="1")
     valid_from = Column(DateTime, nullable=True)
     valid_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)

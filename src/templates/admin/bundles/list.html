@@ -1,0 +1,191 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Набори{% endblock %}
+{% block page_title %}Набори{% endblock %}
+
+{% block content %}
+<!-- Flash messages -->
+{% set success = request.query_params.get('success') %}
+{% set error = request.query_params.get('error') %}
+{% if success %}
+<div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{{ error }}</div>
+{% endif %}
+
+<!-- Header row -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+        <p class="text-sm text-gray-500">Всього наборiв: {{ bundles | length if bundles is defined else 0 }}</p>
+    </div>
+    <a href="/admin/bundles/create" class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Додати набiр
+    </a>
+</div>
+
+<!-- Bundles table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-100">
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Назва <span class="text-xs font-normal text-gray-400">(клік — редагувати)</span></th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Цiна <span class="text-xs font-normal text-gray-400">(клік — редагувати)</span></th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Товарiв</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">Статус</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Термін дiї</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600 w-28">Дiї</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% if bundles is defined %}
+                {% for bundle in bundles %}
+                <tr class="hover:bg-gray-50 transition">
+                    <!-- Name cell (inline editable) -->
+                    <td class="px-4 py-3" id="name-cell-{{ bundle.id }}">
+                        <div class="editable-bundle-cell cursor-pointer hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition"
+                             data-field="name" data-value="{{ bundle.name }}" data-bundle-id="{{ bundle.id }}">
+                            <div class="font-medium text-gray-900">{{ bundle.name }}</div>
+                            <div class="text-xs text-gray-400 font-mono">{{ bundle.slug }}</div>
+                        </div>
+                    </td>
+                    <!-- Price cell (inline editable) -->
+                    <td class="px-4 py-3 text-right" id="price-cell-{{ bundle.id }}">
+                        <span class="editable-bundle-cell font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition inline-block"
+                              data-field="custom_price" data-value="{{ bundle.custom_price }}" data-bundle-id="{{ bundle.id }}">
+                            {{ bundle.custom_price }} грн
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center text-gray-600 hidden md:table-cell">
+                        {{ bundle.items | length }}
+                    </td>
+                    <td class="px-4 py-3 text-center" id="badge-{{ bundle.id }}">
+                        {% if bundle.is_expired %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Прострочено</span>
+                        {% elif bundle.is_active %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Активний</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Вимкнено</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">
+                        {% if bundle.expires_at %}
+                        <span {% if bundle.is_expired %}class="text-red-500"{% endif %}>
+                            до {{ bundle.expires_at.strftime('%d.%m.%Y %H:%M') }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-400">Безстроковий</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            <button type="button"
+                                    hx-post="/admin/bundles/{{ bundle.id }}/toggle"
+                                    hx-target="#badge-{{ bundle.id }}"
+                                    hx-swap="innerHTML"
+                                    class="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition"
+                                    title="Перемкнути статус">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+                            </button>
+                            <a href="/admin/bundles/{{ bundle.id }}/edit" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Редагувати">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </a>
+                            <form method="POST" action="/admin/bundles/{{ bundle.id }}/delete" onsubmit="return confirm('Видалити набiр &laquo;{{ bundle.name }}&raquo;?')">
+                                <button type="submit" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Видалити">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+
+                {% if not bundles or bundles | length == 0 %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        <p>Наборiв не знайдено</p>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Inline editing for bundle name and price cells
+(function () {
+    function bindInlineEdit(cell) {
+        cell.addEventListener('click', function onCellClick() {
+            if (cell.querySelector('input')) return;
+
+            var field = cell.dataset.field;
+            var currentValue = cell.dataset.value;
+            var bundleId = cell.dataset.bundleId;
+            var original = cell.innerHTML;
+
+            var input = document.createElement('input');
+            input.type = field === 'custom_price' ? 'number' : 'text';
+            if (field === 'custom_price') {
+                input.step = '0.01';
+                input.min = '0.01';
+            }
+            input.value = currentValue;
+            input.className = 'w-full border border-brand-400 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
+
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            input.focus();
+            input.select();
+
+            function save() {
+                var newValue = input.value.trim();
+                if (!newValue || newValue === currentValue) {
+                    cell.innerHTML = original;
+                    bindInlineEdit(cell);
+                    return;
+                }
+
+                var formData = new FormData();
+                formData.append('field', field);
+                formData.append('value', newValue);
+
+                fetch('/admin/bundles/' + bundleId + '/inline-update', {
+                    method: 'POST',
+                    body: formData,
+                })
+                    .then(function (res) { return res.text(); })
+                    .then(function (html) {
+                        var td = cell.closest('td');
+                        if (td) {
+                            td.innerHTML = html;
+                            td.querySelectorAll('.editable-bundle-cell').forEach(bindInlineEdit);
+                        }
+                    })
+                    .catch(function () {
+                        cell.innerHTML = original;
+                        bindInlineEdit(cell);
+                    });
+            }
+
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); save(); }
+                if (e.key === 'Escape') {
+                    cell.innerHTML = original;
+                    bindInlineEdit(cell);
+                }
+            });
+        });
+    }
+
+    document.querySelectorAll('.editable-bundle-cell').forEach(bindInlineEdit);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Набори — ParfumShop{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">Набори</h1>
+    <p class="text-gray-500 mb-8">Готовi набори за спецiальною цiною</p>
+
+    {% if bundles %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for bundle in bundles %}
+        <div class="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition">
+            <!-- Image + name/components link -->
+            <a href="/bundles/{{ bundle['slug'] }}" class="block">
+                <div class="aspect-square bg-gray-50 overflow-hidden">
+                    {% if bundle['image_url'] %}
+                    <img src="{{ bundle['image_url'] }}" alt="{{ bundle['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center">
+                        <svg class="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="px-4 pt-4 pb-2">
+                    <h2 class="font-semibold text-gray-900 mb-1 line-clamp-1">{{ bundle['name'] }}</h2>
+                    <div class="space-y-0.5">
+                        {% for item in bundle['items'] %}
+                        <p class="text-xs text-gray-400 line-clamp-1">{{ item['quantity'] }}× {{ item['product_name'] }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </a>
+
+            <!-- Price & CTA — outside <a> so click doesn't navigate -->
+            <div class="px-4 pb-4 flex items-center justify-between mt-2">
+                <span class="text-lg font-bold text-brand-600">{{ bundle['custom_price'] }} грн</span>
+                <button onclick="quickAddBundle({{ bundle['id'] }}, this)"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                    В кошик
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <svg class="w-20 h-20 text-gray-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        <p class="text-gray-500">Наразi немає доступних наборiв</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
