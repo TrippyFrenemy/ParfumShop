@@ -1,14 +1,9 @@
 import httpx
 from celery import shared_task
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 from src.config import settings
-
-SYNC_DB_URL = (
-    f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
-    f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-)
-engine = create_engine(SYNC_DB_URL)
+from src.tasks.db import engine
 
 
 def send_telegram_message(chat_id: str, message_text: str) -> bool:

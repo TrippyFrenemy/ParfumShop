@@ -1,6 +1,6 @@
 import logging
 
-from src.orders.models import DeliveryStatus
+from src.delivery.models import DeliveryStatus
 from src.delivery.nova_poshta import track_parcel
 
 logger = logging.getLogger("user_logger")

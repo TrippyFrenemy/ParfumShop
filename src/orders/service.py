@@ -6,14 +6,15 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from fastapi import HTTPException
 from src.cart.models import Cart
 from src.coupons.models import Coupon
+from src.exceptions import BusinessRuleError
 from src.orders.models import (
     Order, OrderItem, OrderStatus, DeliveryMethod,
     REVENUE_STATUSES,
 )
 from src.settings.models import ShopSettings
+from src.utils.pagination import paginate
 
 
 async def generate_order_number(session: AsyncSession) -> str:
@@ -37,30 +38,23 @@ async def generate_order_number(session: AsyncSession) -> str:
     return f"PF-{date_str}-{seq}"
 
 
-async def create_order(
-    session: AsyncSession,
-    checkout_data: dict,
-    cart: Cart,
-    user_id: Optional[int],
-    coupon: Optional[Coupon],
-) -> Order:
-    """Create an order from the cart contents.
+def _build_order_items(cart: Cart) -> tuple[list[OrderItem], Decimal, Decimal]:
+    """Build order item snapshots from cart contents.
 
-    Raises ValueError when business rules are violated.
+    Returns (order_items, subtotal, products_subtotal).
+    products_subtotal excludes bundles and is used for coupon discount base.
+
+    Raises BusinessRuleError if a bundle is no longer available.
     """
-    # Load shop settings for minimum order validation
-    settings = await session.get(ShopSettings, 1)
-    min_amount = Decimal(str(settings.min_order_amount)) if settings and settings.min_order_amount else Decimal("0")
-
-    # Calculate subtotal from cart items (snapshot prices at order time)
     subtotal = Decimal("0")
-    products_subtotal = Decimal("0")  # subtotal excluding bundles (for coupon calc)
+    products_subtotal = Decimal("0")
     order_items: list[OrderItem] = []
+
     for cart_item in cart.items:
         if cart_item.bundle_id and cart_item.bundle:
             bundle = cart_item.bundle
             if not bundle.is_available:
-                raise HTTPException(status_code=400, detail="Набір більше недоступний")
+                raise BusinessRuleError("Набір більше недоступний")
             line_total = Decimal(str(bundle.custom_price)) * cart_item.quantity
             subtotal += line_total
             order_items.append(
@@ -94,26 +88,49 @@ async def create_order(
                 )
             )
 
+    return order_items, subtotal, products_subtotal
+
+
+def _apply_coupon_discount(
+    coupon: Optional[Coupon],
+    subtotal: Decimal,
+    products_subtotal: Decimal,
+) -> tuple[Decimal, Optional[int]]:
+    """Calculate the coupon discount and return (discount_amount, coupon_id)."""
+    if not coupon:
+        return Decimal("0"), None
+    base = float(products_subtotal) if not coupon.applies_to_bundles else float(subtotal)
+    discount = Decimal(str(coupon.calculate_discount(base)))
+    return discount, coupon.id
+
+
+async def create_order(
+    session: AsyncSession,
+    checkout_data: dict,
+    cart: Cart,
+    user_id: Optional[int],
+    coupon: Optional[Coupon],
+) -> Order:
+    """Create an order from the cart contents.
+
+    Raises BusinessRuleError when business rules are violated.
+    """
+    shop_settings = await ShopSettings.get_settings(session)
+    min_amount = (
+        Decimal(str(shop_settings.min_order_amount))
+        if shop_settings and shop_settings.min_order_amount
+        else Decimal("0")
+    )
+
+    order_items, subtotal, products_subtotal = _build_order_items(cart)
+
     if subtotal < min_amount:
-        raise ValueError(
-            f"Мінімальна сума замовлення: {min_amount} грн"
-        )
+        raise BusinessRuleError(f"Мінімальна сума замовлення: {min_amount} грн")
 
-    # Apply coupon discount
-    discount_amount = Decimal("0")
-    coupon_id = None
-    if coupon:
-        base_for_discount = float(products_subtotal) if not coupon.applies_to_bundles else float(subtotal)
-        discount_amount = Decimal(str(coupon.calculate_discount(base_for_discount)))
-        coupon_id = coupon.id
+    discount_amount, coupon_id = _apply_coupon_discount(coupon, subtotal, products_subtotal)
 
-    total = subtotal - discount_amount
-    if total < 0:
-        total = Decimal("0")
-
-    # Build payment info text from settings
-    payment_info = settings.payment_info_text if settings else None
-
+    total = max(subtotal - discount_amount, Decimal("0"))
+    payment_info = shop_settings.payment_info_text if shop_settings else None
     order_number = await generate_order_number(session)
 
     order = Order(
@@ -140,7 +157,6 @@ async def create_order(
 
     session.add(order)
 
-    # Increment coupon usage count
     if coupon:
         coupon.used_count = (coupon.used_count or 0) + 1
 
@@ -172,23 +188,14 @@ async def get_user_orders(
     per_page: int = 10,
 ) -> tuple[list[Order], int]:
     """Return paginated orders for a specific user."""
-    # Total count
     count_stmt = select(func.count(Order.id)).where(Order.user_id == user_id)
-    total = (await session.execute(count_stmt)).scalar() or 0
-
-    # Paginated results
     stmt = (
         select(Order)
         .options(selectinload(Order.items))
         .where(Order.user_id == user_id)
         .order_by(Order.created_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
     )
-    result = await session.execute(stmt)
-    orders = list(result.scalars().all())
-
-    return orders, total
+    return await paginate(session, stmt, count_stmt, page, per_page)
 
 
 async def get_all_orders(
@@ -222,23 +229,14 @@ async def get_all_orders(
 
     where_clause = and_(*conditions) if conditions else True
 
-    # Total count
     count_stmt = select(func.count(Order.id)).where(where_clause)
-    total = (await session.execute(count_stmt)).scalar() or 0
-
-    # Paginated results
     stmt = (
         select(Order)
         .options(selectinload(Order.items))
         .where(where_clause)
         .order_by(Order.created_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
     )
-    result = await session.execute(stmt)
-    orders = list(result.scalars().all())
-
-    return orders, total
+    return await paginate(session, stmt, count_stmt, page, per_page)
 
 
 async def update_order_status(

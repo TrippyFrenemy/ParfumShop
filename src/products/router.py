@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_session
-from src.cart.router import get_optional_user
+from src.auth.dependencies import get_optional_user
 from src.products import service
 from src.products.schemas import CategoryOut, ProductOut, ProductListOut
 from src.users.models import User

@@ -1,24 +1,19 @@
-import redis.asyncio as redis
-
 from src.config import settings
+from src.utils.redis_client import get_redis_client
 
-redis_client = redis.Redis(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT), decode_responses=True)
-
-# Настройки
-MAX_ATTEMPTS = 5
-BLOCK_TIME = 10 * 60  # 10 минут в секундах
 
 async def is_blocked(ip: str) -> bool:
     key = f"login_block:{ip}"
-    attempts = await redis_client.get(key)
-    return attempts is not None and int(attempts) >= MAX_ATTEMPTS
+    attempts = await get_redis_client().get(key)
+    return attempts is not None and int(attempts) >= settings.MAX_LOGIN_ATTEMPTS
 
-async def register_failed_attempt(ip: str):
+
+async def register_failed_attempt(ip: str) -> None:
     key = f"login_block:{ip}"
-    # Увеличиваем счётчик + устанавливаем TTL
-    current = await redis_client.incr(key)
+    current = await get_redis_client().incr(key)
     if current == 1:
-        await redis_client.expire(key, BLOCK_TIME)
+        await get_redis_client().expire(key, settings.RATE_LIMIT_BLOCK_SECONDS)
 
-async def delete_attempt(ip: str):
-    await redis_client.delete(f"login_block:{ip}")
+
+async def delete_attempt(ip: str) -> None:
+    await get_redis_client().delete(f"login_block:{ip}")

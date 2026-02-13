@@ -2,23 +2,25 @@ import secrets
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
-from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.utils.redis_client import get_redis_client
+from sqlalchemy.future import select
 
 from src.auth.dependencies import get_current_user, pwd_context
+from src.auth.service import get_user_by_email
 from src.auth.tokens import create_access_token, create_refresh_token, decode_token, set_auth_cookies
-from src.users.models import User, UserRole
-from src.database import get_async_session
-from src.logs.middleware import logger
 from src.config import settings
-from src.utils.ratelimit import is_blocked, register_failed_attempt, delete_attempt
+from src.database import get_async_session
+from src.logging_config import get_logger
+from src.users.models import User, UserRole
 from src.utils.ip import get_real_ip
+from src.utils.ratelimit import is_blocked, register_failed_attempt, delete_attempt
+from src.utils.redis_client import get_redis_client
 
 from src.cart.service import merge_carts
 from src.templating import templates
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -36,26 +38,24 @@ async def login(
     session: AsyncSession = Depends(get_async_session
 )):
     ip = await get_real_ip(request)
-    logger.debug(f"[LOGIN] attempt email={form_data.username} ip={ip}")
+    logger.debug("login attempt", extra={"ip": ip})
 
     if await is_blocked(ip):
-        logger.debug(f"[LOGIN] blocked ip={ip}")
+        logger.debug("login blocked by rate limiter", extra={"ip": ip})
         raise HTTPException(status_code=429, detail="Слишком много попыток. Подождите 10 минут.")
 
-    stmt = select(User).where(User.email == form_data.username)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
+    user = await get_user_by_email(session, form_data.username)
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
         await register_failed_attempt(ip)
-        logger.warning(f"[LOGIN FAILED] email={form_data.username} ip={ip}")
+        logger.warning("login failed: invalid credentials", extra={"ip": ip})
         raise HTTPException(status_code=401, detail="Неверные данные")
 
     if not user.is_active:
-        logger.debug(f"[LOGIN] inactive user id={user.id}")
+        logger.debug("login failed: inactive user", extra={"user_id": user.id})
         raise HTTPException(status_code=403, detail="Inactive user")
 
     await delete_attempt(ip)
-    logger.info(f"[LOGIN SUCCESS] {user.email} from {ip}")
+    logger.info("login successful", extra={"user_id": user.id, "ip": ip})
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     await redis.set(f"refresh_token:{user.id}", refresh_token)
@@ -91,11 +91,9 @@ async def register(
 
     email_norm = email.strip().lower()
 
-    stmt = select(User).where(User.email == email_norm)
-    result = await session.execute(stmt)
-    existing = result.scalar_one_or_none()
+    existing = await get_user_by_email(session, email_norm)
     if existing:
-        logger.debug(f"[REGISTER] duplicate email={email_norm}")
+        logger.debug("[REGISTER] duplicate email attempt")
         raise HTTPException(status_code=400, detail="Пользователь уже существует")
 
     user = User(
@@ -162,7 +160,7 @@ async def google_start():
     from src.auth.service import generate_google_oauth_url
 
     state = secrets.token_urlsafe(32)
-    await redis.setex(f"oauth_state:{state}", 600, "1")  # 10 минут
+    await redis.setex(f"oauth_state:{state}", settings.OAUTH_STATE_TTL, "1")
     logger.debug(f"[GOOGLE START] state={state}")
 
     url = generate_google_oauth_url(state=state)
@@ -229,9 +227,7 @@ async def google_callback(
         logger.debug("[GOOGLE CB] incomplete profile")
         raise HTTPException(status_code=400, detail="Google profile incomplete")
 
-    stmt = select(User).where(User.email == email)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
+    user = await get_user_by_email(session, email)
 
     if user:
         logger.debug(f"[GOOGLE CB] existing user id={user.id} google_sub={user.google_sub}")
@@ -300,9 +296,7 @@ async def post_order_register(
 
     email_norm = body.email.strip().lower()
 
-    stmt = select(User).where(User.email == email_norm)
-    result = await session.execute(stmt)
-    existing = result.scalar_one_or_none()
+    existing = await get_user_by_email(session, email_norm)
     if existing:
         raise HTTPException(status_code=400, detail="Користувач з таким email вже існує")
 

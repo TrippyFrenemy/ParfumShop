@@ -6,6 +6,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from src.database import Base
+from src.delivery.models import DeliveryStatus  # noqa: F401 — re-exported for backwards compat
 
 
 class OrderStatus(str, Enum):
@@ -14,14 +15,6 @@ class OrderStatus(str, Enum):
     PROCESSING = "processing"
     SHIPPED = "shipped"
     CANCELLED = "cancelled"
-
-
-class DeliveryStatus(str, Enum):
-    PENDING = "pending"
-    IN_TRANSIT = "in_transit"
-    DELIVERED = "delivered"
-    RECEIVED = "received"
-    RETURNED = "returned"
 
 
 class DeliveryMethod(str, Enum):

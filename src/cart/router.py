@@ -1,9 +1,12 @@
+import logging
 import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from src.cart.schemas import AddToCartRequest, CartOut, UpdateCartItemRequest
 from src.cart.service import (
@@ -37,8 +40,8 @@ async def get_optional_user(
             user = await session.get(User, user_id)
             if user and user.is_active:
                 return user
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("get_optional_user failed (unauthenticated): %s", exc)
     return None
 
 

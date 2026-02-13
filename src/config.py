@@ -63,6 +63,20 @@ class Settings(BaseSettings):
     CACHE_ENABLED: bool = True
     CACHE_DEFAULT_TTL: int = 900  # 15 minutes
 
+    # Auth token lifetimes
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Rate limiting
+    MAX_LOGIN_ATTEMPTS: int = 5
+    RATE_LIMIT_BLOCK_SECONDS: int = 600  # 10 minutes
+
+    # OAuth
+    OAUTH_STATE_TTL: int = 600  # 10 minutes
+
+    # Upload limits
+    MAX_IMAGE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
+
     # Logging configuration (LOG_* env variables)
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "text"  # json/text/colored

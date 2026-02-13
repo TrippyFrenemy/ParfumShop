@@ -42,6 +42,32 @@
     </div>
 </div>
 
+<!-- View / Modify tracking -->
+{% if order.last_viewed_by or order.last_modified_by %}
+<div class="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6">
+    <div class="flex flex-wrap gap-x-8 gap-y-2 text-xs text-gray-500">
+        {% if order.last_viewed_by %}
+        <div class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span>Переглянув: <span class="font-medium text-gray-700">{{ order.last_viewed_by }}</span></span>
+            {% if order.last_viewed_at %}
+            <span class="text-gray-400">{{ order.last_viewed_at.strftime('%d.%m.%Y %H:%M') }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% if order.last_modified_by %}
+        <div class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <span>Змiнив: <span class="font-medium text-gray-700">{{ order.last_modified_by }}</span></span>
+            {% if order.last_modified_at %}
+            <span class="text-gray-400">{{ order.last_modified_at.strftime('%d.%m.%Y %H:%M') }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <!-- Customer info -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -290,32 +316,6 @@
     </div>
     {% endif %}
 </div>
-
-<!-- View / Modify tracking -->
-{% if order.last_viewed_by or order.last_modified_by %}
-<div class="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6">
-    <div class="flex flex-wrap gap-x-8 gap-y-2 text-xs text-gray-500">
-        {% if order.last_viewed_by %}
-        <div class="flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            <span>Переглянув: <span class="font-medium text-gray-700">{{ order.last_viewed_by }}</span></span>
-            {% if order.last_viewed_at %}
-            <span class="text-gray-400">{{ order.last_viewed_at.strftime('%d.%m.%Y %H:%M') }}</span>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% if order.last_modified_by %}
-        <div class="flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            <span>Змiнив: <span class="font-medium text-gray-700">{{ order.last_modified_by }}</span></span>
-            {% if order.last_modified_at %}
-            <span class="text-gray-400">{{ order.last_modified_at.strftime('%d.%m.%Y %H:%M') }}</span>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 
 <!-- Comment -->
 {% if order.comment %}

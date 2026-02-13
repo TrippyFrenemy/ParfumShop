@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -215,7 +215,7 @@ async def merge_carts(
     return await get_cart(session, user_id=user_id)
 
 
-def cart_to_dict(cart: Optional[Cart]) -> dict:
+def cart_to_dict(cart: Optional[Cart]) -> dict[str, Any]:
     """Serialize a Cart into a plain dict suitable for JSON responses."""
     if not cart:
         return {"items": [], "total_items": 0, "total_price": "0.00"}

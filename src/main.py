@@ -25,13 +25,15 @@ from src.auth.router import router as auth_router
 from src.users.router import router as users_router
 from src.logs.router import router as logs_router
 from src.products.router import router as products_router
-from src.cart.router import router as cart_router, get_optional_user
+from src.auth.dependencies import get_optional_user
+from src.cart.router import router as cart_router
 from src.coupons.router import router as coupons_router
 from src.delivery.router import router as delivery_router
 from src.orders.router import router as orders_router
 from src.admin.router import router as admin_router
 from src.reports.router import router as reports_router
 
+from src.exceptions import BusinessRuleError, NotFoundError
 from src.utils.create_preconfig_users import create_user
 from src.config import settings
 from src.products.service import get_categories, get_featured_products, get_products
@@ -102,6 +104,18 @@ async def custom_http_exception_handler(request, exc):
     return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
 
 
+@app.exception_handler(BusinessRuleError)
+async def business_rule_handler(request: Request, exc: BusinessRuleError):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request: Request, exc: NotFoundError):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root(
     request: Request,
@@ -114,7 +128,7 @@ async def root(
     # New products: latest 8 active products
     new_products_list, _ = await get_products(session, page=1, per_page=8)
 
-    shop_settings = await session.get(ShopSettings, 1)
+    shop_settings = await ShopSettings.get_settings(session)
     show_oos = bool(shop_settings and shop_settings.show_out_of_stock)
     bundles = await get_bundles_cached(session, show_out_of_stock=show_oos)
 
@@ -138,7 +152,7 @@ async def contacts_page(
     session: AsyncSession = Depends(get_async_session),
     user: Optional[User] = Depends(get_optional_user),
 ):
-    shop_settings = await session.get(ShopSettings, 1)
+    shop_settings = await ShopSettings.get_settings(session)
     return templates.TemplateResponse(
         "contacts.html",
         {

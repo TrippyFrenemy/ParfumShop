@@ -5,8 +5,9 @@ from contextlib import asynccontextmanager
 from aiobotocore.session import get_session
 from fastapi import UploadFile, HTTPException
 
+from src.config import settings
+
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
-MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
 class S3Client:
@@ -113,11 +114,11 @@ async def validate_image_upload(file: UploadFile) -> bytes:
         )
 
     data = await file.read()
-    if len(data) > MAX_IMAGE_SIZE:
+    if len(data) > settings.MAX_IMAGE_SIZE_BYTES:
         raise HTTPException(
             400,
             f"Файл слишком большой ({len(data) // 1024}КБ). "
-            f"Максимум: {MAX_IMAGE_SIZE // 1024 // 1024}МБ",
+            f"Максимум: {settings.MAX_IMAGE_SIZE_BYTES // 1024 // 1024}МБ",
         )
 
     return data

@@ -6,11 +6,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.auth.dependencies import get_current_user
-from src.cart.router import get_optional_user, _resolve_cart
+from src.auth.dependencies import get_current_user, get_optional_user
+from src.cart.router import _resolve_cart
 from src.cart.service import get_cart, clear_cart, cart_to_dict
 from src.coupons.service import validate_coupon
 from src.database import get_async_session
+from src.exceptions import BusinessRuleError
 from src.orders.service import create_order, get_order_by_number, get_user_orders
 from src.utils.telegram import notify_new_order
 from src.settings.models import ShopSettings
@@ -33,7 +34,7 @@ async def checkout_page(
     if not cart or not cart.items:
         return RedirectResponse("/cart", status_code=302)
 
-    shop_settings = await session.get(ShopSettings, 1)
+    shop_settings = await ShopSettings.get_settings(session)
     cart_data = cart_to_dict(cart)
     products_total = sum(
         float(item["line_total"]) for item in cart_data["items"] if item["type"] == "product"
@@ -118,8 +119,8 @@ async def create_order_endpoint(
             user_id=user.id if user else None,
             coupon=coupon,
         )
-    except ValueError as e:
-        shop_settings = await session.get(ShopSettings, 1)
+    except BusinessRuleError as e:
+        shop_settings = await ShopSettings.get_settings(session)
         cart_data = cart_to_dict(cart)
         products_total = sum(
             float(item["line_total"]) for item in cart_data["items"] if item["type"] == "product"

@@ -135,7 +135,6 @@ async function quickAddToCart(productId, btn) {
             const data = await res.json();
             updateCartBadge(data);
             refreshCartDrawer(data);
-            openCartDrawer();
             btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Додано!';
             setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 1500);
         } else {
@@ -167,7 +166,6 @@ async function quickAddBundle(bundleId, btn) {
             const data = await res.json();
             updateCartBadge(data);
             refreshCartDrawer(data);
-            openCartDrawer();
             btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Додано!';
             setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 1500);
         } else {
@@ -182,14 +180,19 @@ async function quickAddBundle(bundleId, btn) {
     }
 }
 
-// Open cart drawer (used after adding item)
-function openCartDrawer() {
-    if (typeof toggleCartDrawer === 'function') {
-        const drawer = document.getElementById('cart-drawer');
-        if (drawer && !drawer.classList.contains('open')) {
-            toggleCartDrawer();
-        }
-    }
+// Bundle image slider — manual arrow navigation
+function bundleSlide(btn, dir, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const slider = btn.closest('[data-bundle-slider]');
+    const slides = slider.querySelectorAll('.bundle-slide');
+    const dots = slider.querySelectorAll('.bundle-dot');
+    const cur = [...slides].findIndex(s => s.classList.contains('opacity-100'));
+    const next = (cur + dir + slides.length) % slides.length;
+    slides[cur].classList.replace('opacity-100', 'opacity-0');
+    slides[next].classList.replace('opacity-0', 'opacity-100');
+    if (dots[cur])  { dots[cur].classList.replace('opacity-100', 'opacity-40'); }
+    if (dots[next]) { dots[next].classList.replace('opacity-40', 'opacity-100'); }
 }
 
 // Load cart on page load

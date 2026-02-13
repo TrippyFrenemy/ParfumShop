@@ -39,7 +39,7 @@ class ContentMiddleware(BaseHTTPMiddleware):
 
         # Load shop settings for base template (header/footer phone, email, etc.)
         async with async_session_maker() as session:
-            request.state.shop_settings = await session.get(ShopSettings, 1)
+            request.state.shop_settings = await ShopSettings.get_settings(session)
 
         return await call_next(request)
 

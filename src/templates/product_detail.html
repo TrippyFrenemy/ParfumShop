@@ -70,7 +70,7 @@
                 {% endif %}
 
                 <!-- Wholesale tiers -->
-                {% if product.wholesale_tiers %}
+                {% if product.wholesale_tiers and not product.is_discount_active %}
                 <div class="mt-4 pt-4 border-t border-gray-200">
                     <p class="text-sm font-medium text-gray-700 mb-2">{{ t('product.wholesale_heading', 'Оптові ціни:') }}</p>
                     <div class="space-y-1.5">

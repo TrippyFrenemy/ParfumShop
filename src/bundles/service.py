@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from src.bundles.models import Bundle, BundleItem
 from src.bundles.schemas import BundleCreate, BundleUpdate
 from src.cache.decorators import cache_result
+from src.config import settings
 from src.products.models import Product
 
 
@@ -19,7 +20,7 @@ def _bundle_to_dict(bundle: Bundle) -> dict:
         "name": bundle.name,
         "slug": bundle.slug,
         "description": bundle.description,
-        "image_url": bundle.display_image,
+        "image_url": bundle.image_url,
         "custom_price": str(bundle.custom_price),
         "expires_at": bundle.expires_at.isoformat() if bundle.expires_at else None,
         "is_active": bundle.is_active,
@@ -61,7 +62,7 @@ async def get_bundles(
 
 @cache_result(
     namespace="bundles",
-    ttl=900,
+    ttl=settings.CACHE_DEFAULT_TTL,
     key_builder=lambda session, show_out_of_stock=False: f"list:active:{show_out_of_stock}",
 )
 async def get_bundles_cached(session: AsyncSession, show_out_of_stock: bool = False) -> list[dict]:

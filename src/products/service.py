@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from src.cache.decorators import cache_result
 from src.cache.utils import build_products_cache_key
+from src.utils.pagination import paginate
 from src.products.models import Category, Product, ProductImage, WholesaleTier
 from src.products.schemas import (
     CategoryCreate,
@@ -21,7 +22,7 @@ from src.products.schemas import (
 # Text Preprocessing
 # =========================================================================
 
-def preprocess_text_fields(name: str = None, brand: str = None) -> dict:
+def preprocess_text_fields(name: Optional[str] = None, brand: Optional[str] = None) -> dict:
     """
     Preprocess product text fields with context-specific rules.
 
@@ -259,6 +260,70 @@ async def delete_category(
 # Products
 # =========================================================================
 
+_SORT_COLUMNS = {
+    "price_asc": Product.retail_price.asc(),
+    "price_desc": Product.retail_price.desc(),
+    "name": Product.name.asc(),
+}
+
+
+def _build_product_filters(
+    active_only: bool,
+    is_active_filter: Optional[bool],
+    in_stock_filter: Optional[bool],
+    category_id: Optional[int],
+    search: Optional[str],
+    min_price: Optional[float],
+    max_price: Optional[float],
+    brand: Optional[str],
+) -> list:
+    """Build a list of SQLAlchemy filter conditions for product queries."""
+    conditions = []
+    if active_only:
+        conditions.append(Product.is_active.is_(True))
+    if is_active_filter is not None:
+        conditions.append(Product.is_active.is_(is_active_filter))
+    if in_stock_filter is not None:
+        conditions.append(Product.in_stock.is_(in_stock_filter))
+    if category_id is not None:
+        conditions.append(Product.category_id == category_id)
+    if search:
+        term = f"%{search}%"
+        conditions.append(
+            or_(
+                Product.name.ilike(term),
+                Product.brand.ilike(term),
+                Product.description.ilike(term),
+            )
+        )
+    if min_price is not None:
+        conditions.append(Product.retail_price >= min_price)
+    if max_price is not None:
+        conditions.append(Product.retail_price <= max_price)
+    if brand:
+        conditions.append(Product.brand.ilike(brand))
+    return conditions
+
+
+def _apply_product_sorting(stmt, sort: str, show_out_of_stock: bool):
+    """Apply ORDER BY clauses to a product SELECT statement.
+
+    For "newest" (default), only created_at DESC is used.
+    For other sorts, primary sort column comes first, then created_at as tiebreaker.
+    When show_out_of_stock=True, in_stock DESC is always prepended.
+    """
+    sort_col = _SORT_COLUMNS.get(sort)  # None means "newest" (created_at only)
+
+    if show_out_of_stock:
+        if sort_col is not None:
+            return stmt.order_by(Product.in_stock.desc(), sort_col, Product.created_at.desc())
+        return stmt.order_by(Product.in_stock.desc(), Product.created_at.desc())
+
+    if sort_col is not None:
+        return stmt.order_by(sort_col, Product.created_at.desc())
+    return stmt.order_by(Product.created_at.desc())
+
+
 async def get_products(
     session: AsyncSession,
     *,
@@ -274,98 +339,35 @@ async def get_products(
     is_active_filter: Optional[bool] = None,
     in_stock_filter: Optional[bool] = None,
 ) -> tuple[list[Product], int]:
-    """
-    Return a paginated list of products with optional filtering.
-
-    Note: Caching removed - SQLAlchemy objects are not JSON serializable.
-    For cached product lists, use get_products_cached() (to be implemented).
+    """Return a paginated list of products with optional filtering.
 
     Returns a tuple of (products, total_count).
     """
+    from src.settings.models import ShopSettings
+
+    conditions = _build_product_filters(
+        active_only, is_active_filter, in_stock_filter,
+        category_id, search, min_price, max_price, brand,
+    )
+
     base = select(Product).options(
         selectinload(Product.images),
         selectinload(Product.wholesale_tiers),
         selectinload(Product.category),
     )
-
-    conditions = []
-
-    if active_only:
-        conditions.append(Product.is_active.is_(True))
-
-    # Explicit is_active filter (overrides active_only)
-    if is_active_filter is not None:
-        conditions.append(Product.is_active.is_(is_active_filter))
-
-    # Explicit in_stock filter
-    if in_stock_filter is not None:
-        conditions.append(Product.in_stock.is_(in_stock_filter))
-
-    if category_id is not None:
-        conditions.append(Product.category_id == category_id)
-
-    if search:
-        search_term = f"%{search}%"
-        conditions.append(
-            or_(
-                Product.name.ilike(search_term),
-                Product.brand.ilike(search_term),
-                Product.description.ilike(search_term),
-            )
-        )
-
-    if min_price is not None:
-        conditions.append(Product.retail_price >= min_price)
-
-    if max_price is not None:
-        conditions.append(Product.retail_price <= max_price)
-
-    if brand:
-        conditions.append(Product.brand.ilike(brand))
-
     if conditions:
         base = base.where(*conditions)
 
-    # Total count (separate lightweight query)
     count_stmt = select(func.count(Product.id))
     if conditions:
         count_stmt = count_stmt.where(*conditions)
-    total = (await session.execute(count_stmt)).scalar() or 0
 
-    # Get shop settings to check if out-of-stock products should be shown
-    from src.settings.models import ShopSettings
-    shop_settings = await session.get(ShopSettings, 1)
+    shop_settings = await ShopSettings.get_settings(session)
     show_out_of_stock = shop_settings.show_out_of_stock if shop_settings else False
 
-    # Sorting (show in-stock products first only if show_out_of_stock is enabled)
-    if sort == "price_asc":
-        if show_out_of_stock:
-            base = base.order_by(Product.in_stock.desc(), Product.retail_price.asc(), Product.created_at.desc())
-        else:
-            base = base.order_by(Product.retail_price.asc(), Product.created_at.desc())
-    elif sort == "price_desc":
-        if show_out_of_stock:
-            base = base.order_by(Product.in_stock.desc(), Product.retail_price.desc(), Product.created_at.desc())
-        else:
-            base = base.order_by(Product.retail_price.desc(), Product.created_at.desc())
-    elif sort == "name":
-        if show_out_of_stock:
-            base = base.order_by(Product.in_stock.desc(), Product.name.asc(), Product.created_at.desc())
-        else:
-            base = base.order_by(Product.name.asc(), Product.created_at.desc())
-    else:
-        if show_out_of_stock:
-            base = base.order_by(Product.in_stock.desc(), Product.created_at.desc())
-        else:
-            base = base.order_by(Product.created_at.desc())
+    base = _apply_product_sorting(base, sort, show_out_of_stock)
 
-    # Paginated results
-    offset = (page - 1) * per_page
-    stmt = base.offset(offset).limit(per_page)
-    result = await session.execute(stmt)
-    products = list(result.scalars().unique().all())
-
-    return products, total
+    return await paginate(session, base, count_stmt, page, per_page)
 
 
 @cache_result(
@@ -665,7 +667,7 @@ async def get_featured_products(
     now = datetime.now()
 
     # Get shop settings to check if out-of-stock products should be shown
-    shop_settings = await session.get(ShopSettings, 1)
+    shop_settings = await ShopSettings.get_settings(session)
     show_out_of_stock = shop_settings.show_out_of_stock if shop_settings else False
 
     stmt = (

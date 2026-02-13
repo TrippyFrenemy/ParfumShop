@@ -38,7 +38,7 @@
             {% if product.is_discount_active and product.discount_end %}
             <p class="text-xs text-red-500 mt-1">Акцiя до {{ product.discount_end.strftime('%d.%m.%Y %H:%M') }}</p>
             {% endif %}
-            {% if product.wholesale_tiers %}
+            {% if product.wholesale_tiers and not product.is_discount_active %}
             <p class="text-xs text-green-600 mt-1">Від {{ product.wholesale_tiers[0].min_quantity }} шт — {{ product.wholesale_tiers[0].price }} грн</p>
             {% endif %}
         </div>

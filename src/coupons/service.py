@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.coupons.models import Coupon, DiscountType
 from src.coupons.schemas import CouponCreate, CouponUpdate
+from src.utils.pagination import paginate
 
 
 async def get_coupon_by_code(session: AsyncSession, code: str) -> Optional[Coupon]:
@@ -37,22 +38,9 @@ async def get_all_coupons(
     per_page: int = 20,
 ) -> Tuple[list, int]:
     """Return a paginated list of coupons and the total count."""
-    # Total count
     count_stmt = select(func.count(Coupon.id))
-    total = (await session.execute(count_stmt)).scalar() or 0
-
-    # Paginated results
-    offset = (page - 1) * per_page
-    stmt = (
-        select(Coupon)
-        .order_by(Coupon.created_at.desc())
-        .offset(offset)
-        .limit(per_page)
-    )
-    result = await session.execute(stmt)
-    coupons = result.scalars().all()
-
-    return list(coupons), total
+    stmt = select(Coupon).order_by(Coupon.created_at.desc())
+    return await paginate(session, stmt, count_stmt, page, per_page)
 
 
 async def create_coupon(session: AsyncSession, data: CouponCreate) -> Coupon:

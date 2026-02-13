@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.auth.dependencies import get_optional_user
 from src.bundles.schemas import AddBundleToCartRequest
 from src.bundles.service import get_bundle_by_id, get_bundle_by_slug, get_bundles_cached
 from src.cart.service import add_bundle_to_cart, cart_to_dict, get_cart, get_or_create_cart
@@ -15,30 +16,15 @@ from src.users.models import User
 router = APIRouter()
 
 
-async def _get_optional_user(request: Request, session: AsyncSession = Depends(get_async_session)) -> Optional[User]:
-    try:
-        token = request.cookies.get("Authorization", "")
-        if token.startswith("Bearer "):
-            from src.auth.tokens import decode_token
-            payload = decode_token(token[7:])
-            user_id = int(payload.get("sub"))
-            user = await session.get(User, user_id)
-            if user and user.is_active:
-                return user
-    except Exception:
-        pass
-    return None
-
-
 @router.get("/bundles")
 async def bundles_list_page(
     request: Request,
     session: AsyncSession = Depends(get_async_session),
-    user: Optional[User] = Depends(_get_optional_user),
+    user: Optional[User] = Depends(get_optional_user),
 ):
     """Public bundle listing page — only shows available bundles."""
     from src.settings.models import ShopSettings
-    shop_settings = await session.get(ShopSettings, 1)
+    shop_settings = await ShopSettings.get_settings(session)
     show_oos = bool(shop_settings and shop_settings.show_out_of_stock)
     bundles = await get_bundles_cached(session, show_out_of_stock=show_oos)
     return templates.TemplateResponse(
@@ -52,7 +38,7 @@ async def bundle_detail_page(
     slug: str,
     request: Request,
     session: AsyncSession = Depends(get_async_session),
-    user: Optional[User] = Depends(_get_optional_user),
+    user: Optional[User] = Depends(get_optional_user),
 ):
     """Public bundle detail page."""
     bundle = await get_bundle_by_slug(session, slug)
@@ -69,7 +55,7 @@ async def api_add_bundle_to_cart(
     request: Request,
     body: AddBundleToCartRequest,
     session: AsyncSession = Depends(get_async_session),
-    user: Optional[User] = Depends(_get_optional_user),
+    user: Optional[User] = Depends(get_optional_user),
 ):
     """Add a bundle to the cart. Returns updated cart."""
     bundle = await get_bundle_by_id(session, body.bundle_id)

@@ -2,9 +2,19 @@ import urllib.parse
 from typing import Any, Dict, Optional
 
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.logs.middleware import logger
+from src.users.models import User
+
+async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
+    """Look up a user by email address (case-insensitive). Returns None if not found."""
+    normalized = email.strip().lower()
+    result = await session.execute(select(User).where(User.email == normalized))
+    return result.scalar_one_or_none()
+
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"

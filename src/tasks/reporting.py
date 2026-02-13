@@ -1,14 +1,8 @@
 from celery import shared_task
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
-from src.config import settings
+from src.tasks.db import engine
 from src.tasks.notifications import send_telegram_message
-
-SYNC_DB_URL = (
-    f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
-    f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-)
-engine = create_engine(SYNC_DB_URL)
 
 
 @shared_task
