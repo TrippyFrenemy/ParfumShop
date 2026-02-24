@@ -116,6 +116,11 @@ async def not_found_handler(request: Request, exc: NotFoundError):
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root(
     request: Request,
