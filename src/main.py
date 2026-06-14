@@ -99,8 +99,8 @@ app.add_middleware(
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request, exc):
-    if exc.status_code == 401:
-        return RedirectResponse("/auth/login")
+    if exc.status_code == 401 and request.method == "GET":
+        return RedirectResponse("/auth/login", status_code=302)
     return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
 
 

@@ -42,13 +42,21 @@ async def login(
 
     if await is_blocked(ip):
         logger.debug("login blocked by rate limiter", extra={"ip": ip})
-        raise HTTPException(status_code=429, detail="Слишком много попыток. Подождите 10 минут.")
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {"request": request, "error": "Слишком много попыток. Подождите 10 минут."},
+            status_code=429,
+        )
 
     user = await get_user_by_email(session, form_data.username)
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
         await register_failed_attempt(ip)
         logger.warning("login failed: invalid credentials", extra={"ip": ip})
-        raise HTTPException(status_code=401, detail="Неверные данные")
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {"request": request, "error": "Неверные данные"},
+            status_code=401,
+        )
 
     if not user.is_active:
         logger.debug("login failed: inactive user", extra={"user_id": user.id})
