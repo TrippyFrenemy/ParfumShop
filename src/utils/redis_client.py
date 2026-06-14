@@ -4,7 +4,14 @@ from src.config import settings
 
 
 
-_redis_client = redis.Redis(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT), decode_responses=True)
+_redis_client = redis.Redis(
+    host=settings.REDIS_HOST,
+    port=int(settings.REDIS_PORT),
+    decode_responses=True,
+    socket_keepalive=True,
+    socket_connect_timeout=5,
+    retry_on_timeout=True,
+)
 _cache_redis_client = None
 
 def get_redis_client() -> redis.Redis:

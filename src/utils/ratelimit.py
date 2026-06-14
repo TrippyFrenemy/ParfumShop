@@ -10,9 +10,11 @@ async def is_blocked(ip: str) -> bool:
 
 async def register_failed_attempt(ip: str) -> None:
     key = f"login_block:{ip}"
-    current = await get_redis_client().incr(key)
-    if current == 1:
-        await get_redis_client().expire(key, settings.RATE_LIMIT_BLOCK_SECONDS)
+    client = get_redis_client()
+    async with client.pipeline(transaction=True) as pipe:
+        await pipe.incr(key)
+        await pipe.expire(key, settings.RATE_LIMIT_BLOCK_SECONDS)
+        await pipe.execute()
 
 
 async def delete_attempt(ip: str) -> None:
